@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= titulo %>
+    </title>
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+    <link rel="shortcut icon" href="/img/favicon.ico" >
+</head>
+
+<body>
+    <div class="container mt-5">
+        <div class=" row mt-5">
+            <h3 style="display: flex;justify-content: center;">
+                <%= titulo %>
+            </h3>
+            <div class="col-md-6 mt-5 text-center">
+                <img src="/img/foto.png" alt="foto del chat">
+            </div>
+            
+                
+                    <% if(otraSession){ %>
+                   <div  class="col-md-6 mt-5 text-center" style="align-self: center;">
+                           <h4 class="rojo">Whatsapp esta abierto en otra sesión</h4>
+                           <h4>Pulsar "USAR AQUI" para volver a ejecutar el chatbot</h4>       
+                           <button onclick="reconectar()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">USAR AQUI</button>
+                           <a href="/desconectar" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Cerrar Sesión</a>
+                   </div>
+                   <% } %>
+                
+
+                
+                    
+                    <% if(clientReady && !otraSession){ %>
+                <div  class="col-md-6 mt-5 text-center" style="align-self: center;">
+                        <h4>El bot esta funcionando de forma exitosa</h4>     <br>            
+                        <button onclick="actualizaEstado()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Actualizar Estado</button>
+                        <a href="/desconectar" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Cerrar Sesión</a>
+                    </div>
+                    <% } %>
+              
+
+                    <% if(!clientReady){ %>
+                    <div  class="col-md-6 mt-5" style="align-self: center;">
+                                <img width="60%" id="waqrcode" src="https://media.tenor.com/images/a742721ea2075bc3956a2ff62c9bfeef/tenor.gif"><br>
+                                <p>*Presione actualizar para cargar un nuevo codigo QR</p>
+                                <div>
+                                
+                                    <button onclick="actualizaQR()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Actualizar</button>
+                                </div>
+                            </div>
+                            
+                            <% } %>
+               
+            </div>
+
+        </div>
+    </div>
+ 
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
+        crossorigin="anonymous"></script>
+    <script src="/js/script.js"></script>
+</body>
+
+</html>

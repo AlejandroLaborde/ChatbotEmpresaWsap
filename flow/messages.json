@@ -1,0 +1,44 @@
+{
+    
+    "BIENVENIDA": [
+        "Hola!! Soy el BOT de CAM Technology 😄\n",
+        "Somos una empresa de desarrollo de software a medida, para brindar la mejor solución a su problema!\n"
+    ],
+    "MENU":[
+        "Por favor, ingresa sólo el número de la opción que buscas y envia el mensaje: \n",
+        "1️⃣ Información sobre nosotros \n",
+        "2️⃣ Donde encontrarnos \n",
+        "3️⃣ Nuestros trabajos \n",
+        "4️⃣ Como contactarnos \n",
+        "5️⃣ ¿Como funciona el desarrollo a medida ? \n"
+    ],
+    "VOLVER_MENU":[
+        "Presiona 0 para volver al menú. "
+    ],
+    "INFORMACION": [
+        "Somos una consultora formada por un grupo de amigos, Nuestro meta es formar una empresa solida con por lo menos 20 empleados.\n",
+        "Nuestro objetivo es siempre brindar la mejor atención y la mejor relación precio calidad.\n",
+        "Estamos capacitados para brindar distintas soluciónes tecnologicas ya sean Paginas Web, Aplicaciones Mobile, Aplicaciones de escritorio, Automatización de Procesos, Chatbots, WEB services y más.\n"
+    ],
+    "ENCONTRARNOS":[
+        "Tenemos nuestro sitio oficial en pleno desarrollo, asi que proximamente se vienen noticias.\n",
+        "Por ahora podes comunicarte con el wa.me/+5491158232588 (Cristian)\n"
+    ],
+    "TRABAJOS":[
+        "Te paso un PDF con la información de algunos trabajos que hicimos, Objetivos que logramos y la reseña de nuestros clientes."
+    ],
+    "CONTACTO":[
+        "Podes contactarnos al wa.me/+5491158232588 (Cristian)\n",
+        "o tambien podes contactarte via mail a la siguiente casilla \n",
+        "matias.palmieri.01@gmail.com\n"
+    ],
+    "MEDIDA":[
+        "Un software a medida es creado para satisfacer las necesidades puntuales de un cliente.\n",
+        "Nosotros arrancamos con una primera entrevista gratuita donde el cliente nos explicara su problema, Al cabo de un maximo de 7 dias, le brindaremos al cliente un presupuesto detallando paso por paso con los tiempos de entrega y objetivos.\n"
+    ],
+    "CHALLENGE":[
+        "Nos encanta que quieras formar parte de CAM Technology!\n",
+        "Ya mismo te vamos a enviar un PDF donde tendras un pequeño desafio una vez lo finalices te pedimos que lo envies a la siguiente casilla. \n",
+        "matias.palmieri.01@gmail.com \n"
+    ]
+}
