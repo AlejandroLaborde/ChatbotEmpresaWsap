@@ -1,8 +1,8 @@
 
-# BOT Whatsapp Gratis
+# BOT Whatsapp
 
 
-Este bot se realizo para la empresa CAM Technology bajo los lineamientos indicados.
+Este bot fue realizado por CAM Technology.
 [https://github.com/matias2806/ChatBotCAMTechnology](https://github.com/matias2806/ChatBotCAMTechnology)
 
 #### Node 
