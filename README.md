@@ -1,7 +1,6 @@
 
 # BOT Whatsapp
 
-
 Este bot fue realizado por CAM Technology.
 [https://github.com/matias2806/ChatBotCAMTechnology](https://github.com/matias2806/ChatBotCAMTechnology)
 
