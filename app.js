@@ -128,45 +128,31 @@ const replyAsk = (from, answer, clientExist) => new Promise((resolve, reject) =>
     if(clientExist){
    
         if(flow.STEP_1.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.INFORMACION.join(''));
             sendMessage(from, messages.INFORMACION.join(''));
             sendVolverMenu(from);
         }
         else if(flow.STEP_2.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.ENCONTRARNOS.join(''));
             sendMessage(from, messages.ENCONTRARNOS.join(''));
             sendVolverMenu(from);
         }
         else if(flow.STEP_3.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.TRABAJOS.join(''));
-            sendMessage(from, messages.TRABAJOS.join(''));
-            sendMedia(from, "Trabajos.pdf" );
-            setTimeout(() => {
-                sendVolverMenu(from);
-            }, 500);
-        }  
-        else if(flow.STEP_4.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.CONTACTO.join(''));
             sendMessage(from, messages.CONTACTO.join(''));
-           
-            setTimeout(() => {
-                sendMedia(from, "empresa.jpg" );
-                //sendMessage(from, messages.CONTACTO.join(''));
-                sendVolverMenu(from);
-            }, 1500);
+            sendVolverMenu(from);
         }
-        else if(flow.STEP_5.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.MEDIDA.join(''));
+        else if(flow.STEP_4.includes(answer.toLowerCase() )) {
             sendMessage(from, messages.MEDIDA.join(''));
             sendVolverMenu(from); 
         }
+        
         else if(flow.STEP_0.includes(answer.toLowerCase() )) {
-            log(from,answer,messages.MENU.join(''));
             sendMessage(from, messages.MENU.join(''));
+        }
+        else if(flow.STEP_9.includes(answer.toLowerCase() )) {
+            sendMedia(from, "logo-vertical.png" );
+            sendMessage(from, messages.SALUDO_FINAL.join(''));
         }
         else{
             message = ""
-            //message = messages.ERROR.join('');
         }
     }
     

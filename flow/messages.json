@@ -1,10 +1,18 @@
 {
     
     "BIENVENIDA": [
-        "Hola!! Soy el BOT de CAM Technology 😄\n",
+        "Hola!! Soy el BOT de Colossus 😄\n",
         "Somos una empresa de desarrollo de software a medida, para brindar la mejor solución a su problema!\n"
     ],
     "MENU":[
+        "Por favor, ingresa sólo el número de la opción que buscas y envia el mensaje: \n",
+        "1️⃣ Información sobre nosotros \n",
+        "2️⃣ Donde encontrarnos \n",
+        "3️⃣ Como contactarnos \n",
+        "4️⃣ ¿Como funciona el desarrollo a medida ? \n"
+
+    ],
+    "MENU_ORIGINAL":[
         "Por favor, ingresa sólo el número de la opción que buscas y envia el mensaje: \n",
         "1️⃣ Información sobre nosotros \n",
         "2️⃣ Donde encontrarnos \n",
@@ -13,16 +21,18 @@
         "5️⃣ ¿Como funciona el desarrollo a medida ? \n"
     ],
     "VOLVER_MENU":[
-        "Presiona 0 para volver al menú. "
+        "0️⃣ Volver al *MENU*. \n",
+        "9️⃣ Finalizar "
     ],
     "INFORMACION": [
-        "Somos una consultora formada por un grupo de amigos, Nuestro meta es formar una empresa solida con por lo menos 20 empleados.\n",
-        "Nuestro objetivo es siempre brindar la mejor atención y la mejor relación precio calidad.\n",
+        "#SomosColossus una consultora formada por un grupo de profesionales con el objetivo de brindar la mejor solución tecnológica para vos.\n",
+        "Somos una herramienta, una solución, una idea para que  optimices sus procesos, cuantifiques tus resultados, aumentes tu eficiencia y brindes mejores servicios.\n",
+        "Te acompañamos en el proceso de transformación digital para generar la solución mas adecuada.\n",
         "Estamos capacitados para brindar distintas soluciónes tecnologicas ya sean Paginas Web, Aplicaciones Mobile, Aplicaciones de escritorio, Automatización de Procesos, Chatbots, WEB services y más.\n"
     ],
     "ENCONTRARNOS":[
         "Tenemos nuestro sitio oficial en pleno desarrollo, asi que proximamente se vienen noticias.\n",
-        "Por ahora podes comunicarte con el wa.me/+5491158232588 (Cristian)\n"
+        "Por ahora podes comunicarte con el wa.me/+5491158232588 (Cristian) para una atencion personalizada\n"
     ],
     "TRABAJOS":[
         "Te paso un PDF con la información de algunos trabajos que hicimos, Objetivos que logramos y la reseña de nuestros clientes."
@@ -30,14 +40,17 @@
     "CONTACTO":[
         "Podes contactarnos al wa.me/+5491158232588 (Cristian)\n",
         "o tambien podes contactarte via mail a la siguiente casilla \n",
-        "matias.palmieri.01@gmail.com\n"
+        "somoscolossus@gmail.com\n"
     ],
     "MEDIDA":[
         "Un software a medida es creado para satisfacer las necesidades puntuales de un cliente.\n",
-        "Nosotros arrancamos con una primera entrevista gratuita donde el cliente nos explicara su problema, Al cabo de un maximo de 7 dias, le brindaremos al cliente un presupuesto detallando paso por paso con los tiempos de entrega y objetivos.\n"
+        "Nuestra metodologia es comenzar con una primera entrevista gratuita donde el cliente nos explicara su problema, al cabo de un maximo de 7 dias, le brindaremos al cliente un presupuesto detallando paso por paso con los tiempos de entrega y objetivos.\n"
+    ],
+    "SALUDO_FINAL":[
+        "Muchas gracias por comunicarte con nosotros\n"
     ],
     "CHALLENGE":[
-        "Nos encanta que quieras formar parte de CAM Technology!\n",
+        "Nos encanta que quieras formar parte de Colossus!\n",
         "Ya mismo te vamos a enviar un PDF donde tendras un pequeño desafio una vez lo finalices te pedimos que lo envies a la siguiente casilla. \n",
         "matias.palmieri.01@gmail.com \n"
     ]

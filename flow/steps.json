@@ -1,35 +1,32 @@
 {
     "STEP_1": [
         "1",
-        "1️⃣",
-        "informacion",
-        "información"
+        "1️⃣"
+
     ],
     "STEP_2": [
         "2",
-        "2️⃣",
-        "encontrarnos"
+        "2️⃣"
     ],
     "STEP_3": [
         "3",
-        "3️⃣",
-        "trabajos"
+        "3️⃣"
     ],
     "STEP_4": [
         "4",
-        "4️⃣",
-        "contacto"
+        "4️⃣"
+
     ],
     "STEP_5": [
         "5",
-        "5️⃣",
-        "medida"
+        "5️⃣"
     ],
-    "STEP_6": [
-        "6",
-        "challenge"
+    "STEP_9": [
+        "9",
+        "9️⃣"
     ],
     "STEP_0": [
-        "0"
+        "0",
+        "0️⃣"
     ]
 }
