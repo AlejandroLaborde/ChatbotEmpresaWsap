@@ -16,7 +16,7 @@ const messages = require('./flow/messages.json');
 const app = express();
 app.use(express.urlencoded({ extended: true }))
 const SESSION_FILE_PATH = './session.json';
-let port = process.env.PORT || 3000
+let port = process.env.PORT || 3100
 let client;
 let sessionData;
 let qrclient = "Not found";
