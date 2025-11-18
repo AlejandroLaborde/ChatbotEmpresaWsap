@@ -10,7 +10,7 @@ const chalk = require('chalk');
 const ExcelJS = require('exceljs');
 const qrcode = require('qrcode-terminal');
 const qr = require('qrcode');
-const { Client, MessageMedia } = require('whatsapp-web.js');
+const { Client, MessageMedia,LocalAuth } = require('whatsapp-web.js');
 const flow = require('./flow/steps.json')
 const messages = require('./flow/messages.json');
 const app = express();
@@ -28,7 +28,7 @@ let otraSession = false;
 /**
  * Seattings
  */
-app.set('appName', 'Chatbot CAM Technology');
+app.set('appName', 'Chatbot persnalizado');
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views');
 app.use(express.static(__dirname + "/public"));
@@ -206,46 +206,89 @@ const withSession = () => {
  * Generamos un QRCODE para iniciar sesion
  */
 const withOutSession = () => {
-    console.log('No tenemos session guardada');
-    otraSession = false;
-    client = new Client({ puppeteer: { headless: true, args: ['--no-sandbox'] }, userAgent: 'Mozilla/5.0 (Macintosh; iphone Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.109 Safari/537.36' });
+    console.log('🔄 No tenemos sesión guardada, iniciando nueva...');
     
+    otraSession = false;
+
+    // RUTA CONSISTENTE DE SESIÓN
+    const AUTH_DIR = './.wwebjs_auth';
+
+    client = new Client({
+        authStrategy: new LocalAuth({
+            clientId: "client",
+            dataPath: AUTH_DIR
+        }),
+
+        puppeteer: {
+            headless: false,
+            // Si querés usar Chrome instalado, descomentá y ajustá la ruta:
+            // executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-extensions',
+                '--disable-gpu',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--flag-switches-begin --disable-site-isolation-trials --flag-switches-end'
+            ]
+        }
+    });
+
+    // 📌 QR para emparejar
     client.on('qr', qr => {
+        console.log("📱 Escaneá el código QR para continuar");
         qrcode.generate(qr, { small: true });
         qrclient = qr;
     });
 
+    // 📌 Autenticado correctamente
+    client.on('authenticated', () => {
+        console.log('🔐 Autenticación exitosa');
+    });
+
+    // 📌 Si falla la autenticación → borrar sesión y reiniciar
+    client.on('auth_failure', msg => {
+        console.log('❌ Error de autenticación:', msg);
+
+        if (fs.existsSync(AUTH_DIR)) {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+            console.log('🧹 Carpeta de sesión eliminada. Intentando nuevamente...');
+        }
+
+        client = null;
+        withOutSession(); // retry
+    });
+
+    // 📌 Cuando WhatsApp está completamente listo
     client.on('ready', () => {
-        console.log('Client is ready!');
+        console.log('✅ CLIENT READY — Conexión establecida');
         otraSession = false;
         clientReady = true;
+
+        // llamás tu lógica
         connectionReady();
     });
 
-
-
-    client.on('auth_failure', () => {
+    // 📌 Errores de Puppeteer / conexión
+    client.on('disconnected', reason => {
+        console.log('⚠ Cliente desconectado:', reason);
         clientReady = false;
-        if (fs.existsSync(SESSION_FILE_PATH)) {
-            fs.unlinkSync(SESSION_FILE_PATH)
-            withOutSession()
+
+        // Limpieza de sesión para evitar loops
+        if (fs.existsSync(AUTH_DIR)) {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+            console.log("🧹 Sesión eliminada por seguridad");
         }
-        console.log('** Error de autentificacion vuelve a generar el QRCODE **');
-    })
 
-
-    client.on('authenticated', (session) => {
-        // Guardamos credenciales de de session para usar luego
-        sessionData = session;
-        fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
-            if (err) {
-                console.log(err);
-            }
-        });
+        withOutSession();
     });
 
-    client.initialize();
-}
+    // 📌 Iniciar cliente
+    client.initialize().catch(err => {
+        console.log("💥 Error en initialize:", err);
+    });
+};
 
 const connectionReady = () => {
     listenMessage();
