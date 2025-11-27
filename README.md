@@ -57,17 +57,34 @@ Response:
 Endpoint 1:
 ¿Que hace?
 -Validar numero es usuario
+<<<<<<< HEAD
+=======
+Verificar con cliente escenarios:
+-Habla persona random 
+-Habla persona con documentacion 
+-Habla persona sin documentacion 
+>>>>>>> 94813b7 (Se crea mock)
 
 URL: htpp://www.{URL}.com/
 Path:
 Tipo: GET
 Request:
 {
+<<<<<<< HEAD
     "nume": "value"
 }
 Response:
 {
     "key": "value"
+=======
+    "number": "value"
+}
+Response:
+{
+    "clientId": "value",
+    "isClient": "Bool",
+    "message": ""
+>>>>>>> 94813b7 (Se crea mock)
 }
 
 //------------------------------------
@@ -75,7 +92,11 @@ Response:
 Endpoint 2:
 ¿Que hace?
 - Personas con documentacion pendiente
+<<<<<<< HEAD
 
+=======
+Definir unidad de tiempo para este chequeo
+>>>>>>> 94813b7 (Se crea mock)
 URL: htpp://www.{URL}.com/
 Path: /pending-clients
 Tipo: GET
@@ -84,6 +105,7 @@ Request:
     
 }
 Response:
+<<<<<<< HEAD
 {
     "companyName": "Coca-Cola",
     "list": [
@@ -110,6 +132,63 @@ Response:
         }
     ]
 }
+=======
+[
+    {
+        "companyName": "Coca-Cola",
+        "list": [
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Matias",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            },
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Alejandro",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            },
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Cris",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            }
+        ]
+    },
+    {
+        "companyName": "Fernet Branca",
+        "list": [
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Matias",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            },
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Alejandro",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            },
+            {
+                "clientId": "UUID", o String o UUID
+                "name": "Cris",
+                "number": "541112345678",
+                "direc": "direcion tal",STRING
+                "hourAndDate": "12:00 12/12/2025",String
+            }
+        ]
+    }
+]
+
+>>>>>>> 94813b7 (Se crea mock)
 
 //------------------------------------
 
@@ -148,6 +227,7 @@ Response:
 //------------------------------------
 
 Endpoint 4:
+<<<<<<< HEAD
 ¿Que hace?
 -Validar numero es usuario
 
@@ -161,4 +241,39 @@ Request:
 Response:
 {
     "key": "value"
+=======
+-Validar del documento enviado
+
+URL: htpp://www.{URL}.com/
+Path: /validate-document
+Tipo: POST
+Request:
+{
+    "idDocument": "value",
+    "clientId":"value",
+    "base64":"value"
+}
+Response:
+{
+    "documentValid": "bool",
+    "message":"value",
+    "sugestion":"value" //Solo se envia si documentValid es False
+}
+
+
+//------------------------------------
+
+Endpoint 5:
+-Generar QR Acceso Cliente
+
+URL: htpp://www.{URL}.com/
+Path: /get-QR
+Tipo: GET
+Request:
+{
+    "clientId":"value"
+}
+Response:
+{
+    "base64": "value"
 }
