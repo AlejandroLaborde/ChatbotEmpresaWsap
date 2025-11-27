@@ -77,33 +77,189 @@ const sendMessage = (number = null, text = null) => {
     console.log(`${chalk.red('⚡⚡⚡ Enviando mensajes....')}`);
 }
 
-/**
- * Escuchamos cuando entre un mensaje
- */
+// MOCK Endpoint 3: /pending-documents
+const mockPendingDocuments = (clientId) => {
+    console.log(`[MOCK] Buscando documentación pendiente para cliente: ${clientId}`);
+
+    return {
+        documentList: [
+            {
+                nameDocument: "DNI",
+                descripcionDocument: "Foto del frente del DNI",
+                idDocument: "doc-001"
+            },
+            {
+                nameDocument: "Factura",
+                descripcionDocument: "Factura del último servicio",
+                idDocument: "doc-002"
+            },
+            {
+                nameDocument: "Certificado laboral",
+                descripcionDocument: "Certificado firmado por la empresa",
+                idDocument: "doc-003"
+            }
+        ]
+    };
+};
+
+const buildDynamicPendingDocsMessage = (cliente, companyName, documentList) => {
+    let mensaje = `Hola ${cliente.name}! 👋\n`;
+    mensaje += `Para tu próxima visita en *${companyName}* necesitamos la siguiente documentación:\n\n`;
+
+    documentList.forEach((doc, index) => {
+        mensaje += `${index + 1}) *${doc.nameDocument}* — ${doc.descripcionDocument}\n`;
+    });
+
+    mensaje += `\nPor favor enviá el número de la opción que quieras cargar.`;
+
+    return mensaje;
+};
+
+
+
+const activeMessag = () => {
+    setInterval(() => {
+        console.log("=== EJECUTANDO activeMessag() ===");
+        console.log("[LOG] Endpoint 2 MOCK: /pending-clients");
+        console.log("[LOG] Usando datos mockeados...");
+
+        try {
+
+            // === MOCK DEL ENDPOINT 2 ===
+            const response = {
+                data: {
+                    companyName: "Coca-Cola",
+                    list: [
+                        {
+                            clientId: "abc-123",
+                            name: "Matias",
+                            number: "5491111111111",
+                            direc: "Avenida Siempreviva 742",
+                            hourAndDate: "10:00 20/11/2025"
+                        },
+                        {
+                            clientId: "def-456",
+                            name: "Alejandro",
+                            number: "5492222222222",
+                            direc: "Calle Falsa 123",
+                            hourAndDate: "11:00 20/11/2025"
+                        },
+                        {
+                            clientId: "ghi-789",
+                            name: "Cris",
+                            number: "5493333333333",
+                            direc: "Av. Libertador 5000",
+                            hourAndDate: "13:30 20/11/2025"
+                        }
+                    ]
+                }
+            };
+
+            const companyName = response.data.companyName;
+            const lista = response.data.list;
+
+            console.log(`[LOG] Empresa: ${companyName}`);
+            console.log(`[LOG] Clientes con documentación pendiente: ${lista.length}`);
+
+            for (const cliente of lista) {
+                console.log("-------------------------------------------");
+                console.log(`[LOG] Procesando cliente: ${cliente.name}`);
+                console.log(`[LOG] Número: ${cliente.number}`);
+                console.log(`[LOG] Dirección: ${cliente.direc}`);
+                console.log(`[LOG] Fecha/Hora: ${cliente.hourAndDate}`);
+                console.log("[LOG] → Enviaría mensaje pidiendo documentación");
+
+                 // MOCK Endpoint 3 — documentaciones pendientes
+                const docsPendientes = mockPendingDocuments(cliente.clientId);
+
+                 // Crear mensaje dinámico
+                const mensaje = buildDynamicPendingDocsMessage(
+                    cliente,
+                    companyName,
+                    docsPendientes.documentList
+                );
+                /*const mensaje =
+                    `Hola ${cliente.name}! Para tu visita próxima en *${companyName}* ` +
+                    `necesitamos esta documentación:\n\n` +
+                    `1) Foto del DNI\n` +
+                    `2) Factura en PDF\n\n` +
+                    `Enviá el número de la opción.`;*/
+
+                // Enviar mensaje real
+                client.sendMessage(`${cliente.number}@c.us`, mensaje);
+            }
+
+            console.log("[LOG] Finalizó el ciclo con MOCK.");
+
+        } catch (error) {
+            console.log("[ERROR] Falló el mock (imposible, pero por las dudas):", error);
+        }
+
+    },25000);//10 * 60 * 1000); // 4 horas
+};
+
+
+
 const listenMessage = () => {
     client.on('message', async msg => {
-        const { from, to, body } = msg;
-        if (msg.hasMedia) {
-            //Esto esta preparado para guardar las imagenes que lleguen
-            //const media = await msg.downloadMedia();
-            //saveMedia(media);
-        } else {
-
-            if (from.toString().length < 27) { // para validar que sea una persona y que no sea un grupo
-                pathExcel = `./chats/${from}.json`;
-                clientExist = fs.existsSync(pathExcel);
-                if (clientExist) {
-                   await readLastFileJsonAndResponse(from, body);
-                } else {
-                    await greetCustomer(from);
-                    await replyAsk(from, body, clientExist);
-                }
-            } else {
-                console.log("El mensaje que se recibio es proveniente de un grupo")
-            }
+        const { from, body } = msg;
+        
+        console.log("=== Nuevo mensaje ===");
+        console.log("De:", from);
+        console.log("Mensaje:", body);
+        console.log(body);
+        console.log("Endpoint 1: ¿Que hace? -Validar numero es usuario:");
+        // Ignorar grupos
+        if (from.toString().length > 27) {
+            console.log("[LOG] Es un grupo → no proceso nada");
+            return;
         }
+
+        // Si llega un archivo
+        if (msg.hasMedia) {
+            console.log("[LOG] Usuario envió documentación (archivo)");
+            console.log("[LOG] -> Validaría la documentación Por la API");
+            console.log("[LOG] -> Revisaría si es válida o no");
+
+            // Simulación random de validación
+            const valida = Math.random() > 0.5;
+
+            if (!valida) {
+                console.log("[LOG] DOCUMENTO INVALIDO");
+                console.log("[LOG] Motivos de invalidación: ejemplo");
+                console.log("[LOG] Consejos: ejemplo");
+                console.log("❌ La documentación es incorrecta. Motivo: ejemplo. Consejos: reenviá una foto más clara.");
+                client.sendMessage(from, "❌ La documentación es incorrecta. Motivo: ejemplo. Consejos: reenviá una foto más clara.");
+                return;
+            }
+
+            console.log("[LOG] DOCUMENTO VÁLIDO");
+            console.log("[LOG] -> Extraería la información del documento (DNI, factura, etc)");
+            console.log("[LOG] -> ✔ Documento válido. Procesado correctamente.");
+
+            client.sendMessage(from, "✔ Documento válido. Procesado correctamente.");
+            return;
+        }
+
+        // Si llega texto
+        console.log("[LOG] Usuario envió texto:", body);
+        // Flujo súper básico
+        if (body === "1") {
+            console.log("[LOG] Usuario eligió opción 1 (pendiente de enviar DNI por ejemplo)");
+            client.sendMessage(from, "Enviame la foto del DNI ahora.");
+            return;
+        }
+
+        if (body === "2") {
+            console.log("[LOG] Usuario eligió opción 2 (pendiente de enviar factura)");
+            client.sendMessage(from, "Enviame la factura en PDF o foto.");
+            return;
+        }
+
     });
-}
+};
+
+
 
 /**
  * Escuchamos cuando entre un mensaje
@@ -290,10 +446,19 @@ const withOutSession = () => {
     });
 };
 
+let intervalStarted = false;
+
 const connectionReady = () => {
+    console.log("Client is ready!");
+
     listenMessage();
-    //readExcel();
     listenChanges();
+
+    if (!intervalStarted) {
+        console.log("[LOG] Iniciando proceso automático cada 4 horas...");
+        activeMessag();
+        intervalStarted = true;
+    }
 }
 
 const readChatJson = async (number, message) => {
