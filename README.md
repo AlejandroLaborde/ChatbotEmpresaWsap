@@ -23,6 +23,28 @@ Escanea el el código QR desde tu aplicación de Whatsapp
 
 `node app.js`
 
+---
+
+## 🛡️ Funcionalidades y Modo Seguro (Dummy Mode)
+
+Durante el desarrollo de integraciones con APIs reales, es vital no enviar mensajes por accidente a los clientes finales.
+Para evitar esto, en `app.js` se encuentra instalada una bandera de seguridad:
+
+```javascript
+const withDummyNumberCris = true;
+const DUMMY_NUMBER_CRIS = "5491158232588";
+```
+
+### ¿Cómo funciona el Modo Dummy = `true`?
+- **Redirección de Envío:** Sin importar qué clientes y números arroje el Endpoint de CelerPass, el bot interceptará cada número y enviará **todos los mensajes** a tu número de prueba (`+54 9 11 5823-2588`).
+- **Autovalidación:** Al responder o enviar fotos por WhatsApp, el bot salteará las llamadas a la API de validación real (Endpoints 1 y 4) y *"aprobará"* tus documentos instantáneamente en forma de simulacro para agilizar los seteos de pruebas.
+
+### Otras Mejoras Internas
+* **Multi-Empresa:** El bot es capaz de leer y separar listas nativas con formato *Array* de empresas (ej: `[{ companyName: 'A'... }, { companyName: 'B'... }]`).
+* **Auto-Parseo de Celulares:** A los números móviles provenientes de Argentina (`+54`) que ingresan desde la API, se les inyecta automáticamente el dígito **`9`**  (`549...`) requerido estrictamente por las normas internas de WhatsApp.
+* **Control de Existencia (Anti-Crash):** El bot efectúa una llamada a `client.getNumberId()` para cerciorarse de que un número tenga WhatsApp activo antes de enviarle un mensaje. Si no existe, simplemente lo reporta y lo saltea evitando que todo el servidor caiga.
+
+---
 
 Listado y formato de endpoints que necesitamos
 
