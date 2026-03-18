@@ -1,6 +1,3 @@
-2025/11/18-20:42:46.651 3734 Reusing MANIFEST E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Local Storage\leveldb/MANIFEST-000001
-2025/11/18-20:42:46.652 3734 Recovering log #3
-2025/11/18-20:42:46.664 3734 Reusing old log E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Local Storage\leveldb/000003.log 
-2025/11/18-20:43:47.438 2a20 Level-0 table #5: started
-2025/11/18-20:43:47.491 2a20 Level-0 table #5: 19203 bytes OK
-2025/11/18-20:43:47.524 2a20 Delete type=0 #3
+2025/11/26-20:07:55.712 18ac Reusing MANIFEST E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Local Storage\leveldb/MANIFEST-000001
+2025/11/26-20:07:55.757 18ac Recovering log #11
+2025/11/26-20:07:55.759 18ac Reusing old log E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Local Storage\leveldb/000011.log 
