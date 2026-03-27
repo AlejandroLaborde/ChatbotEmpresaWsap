@@ -1,33 +1,3 @@
-2026/03/18-18:46:40.033 960 Reusing MANIFEST C:\Users\Matias\Desktop\Antigravity\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/03/18-18:46:40.034 960 Recovering log #158
-2026/03/18-18:46:40.121 960 Reusing old log C:\Users\Matias\Desktop\Antigravity\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000158.log 
-2026/03/18-18:46:45.962 29ec Level-0 table #166: started
-2026/03/18-18:46:46.015 29ec Level-0 table #166: 1198542 bytes OK
-2026/03/18-18:46:46.018 29ec Delete type=0 #158
-2026/03/18-18:46:46.056 960 Compacting 1@1 + 4@2 files
-2026/03/18-18:46:46.186 960 Generated table #167@1: 75636 keys, 2221548 bytes
-2026/03/18-18:46:46.290 960 Generated table #168@1: 53371 keys, 2322556 bytes
-2026/03/18-18:46:46.403 960 Generated table #169@1: 26610 keys, 2203725 bytes
-2026/03/18-18:46:46.489 960 Generated table #170@1: 22146 keys, 1323432 bytes
-2026/03/18-18:46:46.489 960 Compacted 1@1 + 4@2 files => 8071261 bytes
-2026/03/18-18:46:46.490 960 compacted to: files[ 0 0 4 0 0 0 0 ]
-2026/03/18-18:46:50.027 29ec Level-0 table #172: started
-2026/03/18-18:46:50.070 29ec Level-0 table #172: 1321295 bytes OK
-2026/03/18-18:46:50.072 29ec Delete type=2 #160
-2026/03/18-18:46:50.073 29ec Delete type=2 #161
-2026/03/18-18:46:50.073 29ec Delete type=2 #162
-2026/03/18-18:46:50.073 29ec Delete type=2 #163
-2026/03/18-18:46:50.073 29ec Delete type=0 #165
-2026/03/18-18:46:50.073 29ec Delete type=2 #166
-2026/03/18-18:46:50.405 960 Compacting 1@1 + 4@2 files
-2026/03/18-18:46:50.491 960 Generated table #173@1: 80499 keys, 2229050 bytes
-2026/03/18-18:46:50.575 960 Generated table #174@1: 51532 keys, 2322812 bytes
-2026/03/18-18:46:50.677 960 Generated table #175@1: 27501 keys, 2207789 bytes
-2026/03/18-18:46:50.728 960 Generated table #176@1: 21739 keys, 1323205 bytes
-2026/03/18-18:46:50.728 960 Compacted 1@1 + 4@2 files => 8082856 bytes
-2026/03/18-18:46:50.729 960 compacted to: files[ 0 0 4 0 0 0 0 ]
-2026/03/18-18:46:50.730 960 Delete type=2 #167
-2026/03/18-18:46:50.730 960 Delete type=2 #168
-2026/03/18-18:46:50.730 960 Delete type=2 #169
-2026/03/18-18:46:50.730 960 Delete type=2 #170
-2026/03/18-18:46:50.730 960 Delete type=2 #172
+2026/03/27-08:47:17.654 2484 Reusing MANIFEST E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/03/27-08:47:17.655 2484 Recovering log #357
+2026/03/27-08:47:17.816 2484 Reusing old log E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000357.log 

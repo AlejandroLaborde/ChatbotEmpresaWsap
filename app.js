@@ -2,6 +2,36 @@
  * ⚡⚡⚡ DECLARAMOS LAS LIBRERIAS y CONSTANTES A USAR! ⚡⚡⚡
  */
 require('dotenv').config();
+
+// --- DASHBOARD LOG INTERCEPTOR ---
+let serverLogs = [
+    { id: Date.now(), time: new Date().toLocaleTimeString(), msg: "PANEL DE CONTROL INICIADO - CONECTOR LISTO", type: "info" }
+];
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = function (...args) {
+    originalLog.apply(console, args);
+    serverLogs.push({
+        id: Date.now() + Math.random(),
+        time: new Date().toLocaleTimeString(),
+        msg: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
+        type: 'info'
+    });
+    if (serverLogs.length > 100) serverLogs.shift();
+};
+
+console.error = function (...args) {
+    originalError.apply(console, args);
+    serverLogs.push({
+        id: Date.now() + Math.random(),
+        time: new Date().toLocaleTimeString(),
+        msg: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
+        type: 'error'
+    });
+    if (serverLogs.length > 100) serverLogs.shift();
+};
+// ---------------------------------
 const fs = require('fs');
 const mimeDb = require('mime-db')
 const express = require('express');
@@ -16,7 +46,8 @@ const apiService = require('./services/api.service');
 const flow = require('./flow/steps.json')
 const messages = require('./flow/messages.json');
 const app = express();
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const SESSION_FILE_PATH = './session.json';
 let port = process.env.PORT || 3100
 let client;
@@ -33,6 +64,7 @@ let otraSession = false;
 const workWithMock = false;
 const withDummyNumberCris = true;
 const DUMMY_NUMBER_CRIS = "5491158232588";
+const MOCK_MSG_SEND = process.env.MOCK_MSG_SEND === 'true'; // false → envía mensajes reales | true → loguea en consola sin enviar
 
 /**
  * Seattings
@@ -64,6 +96,12 @@ const saveMedia = (media) => {
 const sendMedia = (number, fileName) => {
     number = number.replace('@c.us', '');
     number = `${number}@c.us`
+
+    if (MOCK_MSG_SEND) {
+        console.log(chalk.yellow(`[MOCK SEND MEDIA] Para: ${number} | Archivo: ${fileName}`));
+        return;
+    }
+
     const media = MessageMedia.fromFilePath(`./mediaSend/${fileName}`);
     client.sendMessage(number, media);
 }
@@ -74,14 +112,19 @@ const sendMedia = (number, fileName) => {
  */
 const sendMessage = async (number = null, text = null) => {
     let cleanNumber = number.replace(/\D/g, '');
-    
+
     // Normalizar números de Argentina agregando el 9 (5411... -> 54911...)
     if (cleanNumber.startsWith('54') && cleanNumber.length === 12) {
         cleanNumber = '549' + cleanNumber.substring(2);
     }
-    
+
     if (withDummyNumberCris) {
         cleanNumber = DUMMY_NUMBER_CRIS;
+    }
+
+    if (MOCK_MSG_SEND) {
+        console.log(chalk.yellow(`[MOCK SEND] Para: ${cleanNumber} | Texto: ${text}`));
+        return;
     }
 
     try {
@@ -89,7 +132,7 @@ const sendMessage = async (number = null, text = null) => {
         if (contactId) {
             await client.sendMessage(contactId._serialized, text);
             console.log(`[LOG] Mensaje directo enviado a ${cleanNumber}`);
-            
+
             try {
                 readChatJson(cleanNumber, text);
             } catch (error) {
@@ -151,6 +194,11 @@ const buildDynamicPendingDocsMessage = (cliente, companyName, documentList) => {
 
 const activeMessag = () => {
     setInterval(async () => {
+        if (!clientReady) {
+            console.log("[LOG] Ciclo abortado: No hay sesión activa de WhatsApp.");
+            return;
+        }
+
         console.log("=== EJECUTANDO activeMessag() ===");
         console.log(`[LOG] Modo: ${workWithMock ? 'MOCK' : 'API REAL'}`);
 
@@ -240,9 +288,15 @@ const activeMessag = () => {
                     if (cleanNumber.startsWith('54') && cleanNumber.length === 12) {
                         cleanNumber = '549' + cleanNumber.substring(2);
                     }
-                    
+
                     if (withDummyNumberCris) {
                         cleanNumber = DUMMY_NUMBER_CRIS;
+                    }
+
+                    if (MOCK_MSG_SEND) {
+                        console.log(chalk.yellow(`[MOCK SEND PENDING] Para: ${cliente.name} (${cleanNumber}) | Mensaje: ${mensaje}`));
+                        console.log(`[LOG] Mensaje pendiente enviado a ${cliente.name} (${cleanNumber})`);
+                        continue;
                     }
 
                     try {
@@ -265,119 +319,182 @@ const activeMessag = () => {
             console.log("[ERROR] Falló activeMessag():", error.message || error);
         }
 
-    }, 25000); // 10 * 60 * 1000 → 4 horas
+    }, process.env.POLLING_FREQUENCY_MS || 14400000);
 };
 
 
 
-const listenMessage = () => {
-    client.on('message', async msg => {
-        const { from, body } = msg;
+const handleIncomingMessage = async (msg) => {
+    const { from, body } = msg;
 
-        console.log("=== Nuevo mensaje ===");
-        console.log("De:", from);
-        console.log("Mensaje:", body);
-        console.log(`[LOG] Modo: ${workWithMock ? 'MOCK' : 'API REAL'}`);
+    console.log("=== Nuevo mensaje ===");
+    console.log("De:", from);
+    console.log("Mensaje:", body);
+    console.log(`[LOG] Modo: ${workWithMock ? 'MOCK' : 'API REAL'}`);
 
-        // Ignorar grupos
-        if (from.toString().length > 27) {
-            console.log("[LOG] Es un grupo → no proceso nada");
-            return;
+    // Ignorar grupos
+    if (from.toString().length > 27) {
+        console.log("[LOG] Es un grupo → no proceso nada");
+        return;
+    }
+
+    // ================================================================
+    // ENDPOINT 1 — Validar si el número es cliente registrado
+    // ================================================================
+    let clienteValidado = null;
+    try {
+        const numero = `+${from.replace('@c.us', '')}`;
+
+        if (withDummyNumberCris) {
+            clienteValidado = { isClient: true, clientId: "dummy-client-cris", message: "Cliente válido (Dummy Cris)" };
+        } else if (workWithMock) {
+            clienteValidado = mockValidatePhoneNumber(numero);
+        } else {
+            clienteValidado = await apiService.validatePhoneNumber(numero);
         }
+        console.log(`[LOG] Endpoint 1 → isClient: ${clienteValidado?.isClient} | clientId: ${clienteValidado?.clientId}`);
+    } catch (err) {
+        console.log("[ERROR] No se pudo validar el número:", err.message || err);
+    }
 
-        // ================================================================
-        // ENDPOINT 1 — Validar si el número es cliente registrado
-        // ================================================================
-        let clienteValidado = null;
-        try {
-            const numero = `+${from.replace('@c.us', '')}`;
-            
-            if (withDummyNumberCris) {
-                clienteValidado = { isClient: true, clientId: "dummy-client-cris", message: "Cliente válido (Dummy Cris)" };
-            } else if (workWithMock) {
-                clienteValidado = mockValidatePhoneNumber(numero);
-            } else {
-                clienteValidado = await apiService.validatePhoneNumber(numero);
-            }
-            console.log(`[LOG] Endpoint 1 → isClient: ${clienteValidado?.isClient} | clientId: ${clienteValidado?.clientId}`);
-        } catch (err) {
-            console.log("[ERROR] No se pudo validar el número:", err.message || err);
-        }
+    // Si llega un archivo media
+    if (msg.hasMedia) {
+        console.log("[LOG] Usuario envió documentación (archivo)");
 
-        // Si llega un archivo media
-        if (msg.hasMedia) {
-            console.log("[LOG] Usuario envió documentación (archivo)");
+        if (withDummyNumberCris) {
+            try {
+                console.log("[API] Descargando archivo media...");
+                const media = await msg.downloadMedia();
+                const base64 = media.data;
 
-            if (withDummyNumberCris) {
-                console.log("[DUMMY] DOCUMENTO VÁLIDO DIRECTAMENTE");
-                client.sendMessage(from, "✔ Documento válido (Modo Dummy Cris). Procesado correctamente.");
-                return;
-            }
+                // idDocument y clientId se obtendrían del estado de conversación;
+                // por ahora usamos los datos del cliente validado en Endpoint 1
+                const idDocument = null; // TODO: rastrear documento esperado por usuario
+                const clientId = clienteValidado?.clientId || null;
 
-            if (workWithMock) {
-                // ============================================================
-                // 🟡 MODO MOCK — validación aleatoria
-                // ============================================================
-                console.log("[MOCK] Endpoint 4: validate-document (aleatoria)");
-                const valida = Math.random() > 0.5;
+                const resultado = await apiService.validateDocument(idDocument, clientId, base64);
 
-                if (!valida) {
-                    console.log("[MOCK] DOCUMENTO INVALIDO");
-                    client.sendMessage(from, "❌ La documentación es incorrecta. Motivo: ejemplo. Consejos: reenviá una foto más clara.");
+                if (!resultado.documentValid) {
+                    const motivo = resultado.message || "Documento inválido";
+                    const sugerencia = resultado.sugestion ? ` Sugerencia: ${resultado.sugestion}` : "";
+                    if (MOCK_MSG_SEND) {
+                        console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ❌ ${motivo}.${sugerencia}`));
+                    } else {
+                        client.sendMessage(from, `❌ ${motivo}.${sugerencia}`);
+                    }
                     return;
                 }
 
-                console.log("[MOCK] DOCUMENTO VÁLIDO");
-                client.sendMessage(from, "✔ Documento válido. Procesado correctamente.");
-                return;
-            } else {
-                // ============================================================
-                // 🟢 MODO API REAL — descarga el media y envía a CelerPass
-                // ============================================================
-                try {
-                    console.log("[API] Descargando archivo media...");
-                    const media = await msg.downloadMedia();
-                    const base64 = media.data;
-
-                    // idDocument y clientId se obtendrían del estado de conversación;
-                    // por ahora usamos los datos del cliente validado en Endpoint 1
-                    const idDocument = null; // TODO: rastrear documento esperado por usuario
-                    const clientId = clienteValidado?.clientId || null;
-
-                    const resultado = await apiService.validateDocument(idDocument, clientId, base64);
-
-                    if (!resultado.documentValid) {
-                        const motivo = resultado.message || "Documento inválido";
-                        const sugerencia = resultado.sugestion ? ` Sugerencia: ${resultado.sugestion}` : "";
-                        client.sendMessage(from, `❌ ${motivo}.${sugerencia}`);
-                        return;
-                    }
-
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ✔ ${resultado.message || 'Documento válido. Procesado correctamente.'}`));
+                } else {
                     client.sendMessage(from, `✔ ${resultado.message || 'Documento válido. Procesado correctamente.'}`);
-                } catch (err) {
-                    console.log("[ERROR] Fallo al validar documento via API:", err.message || err);
+                }
+            } catch (err) {
+                console.log("[ERROR] Fallo al validar documento via API:", err.message || err);
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ⚠ Hubo un error al procesar tu documento. Intentá de nuevo.`));
+                } else {
                     client.sendMessage(from, "⚠ Hubo un error al procesar tu documento. Intentá de nuevo.");
+                }
+            }
+            return;
+        }
+
+        if (workWithMock) {
+            // ============================================================
+            // 🟡 MODO MOCK — validación aleatoria
+            // ============================================================
+            console.log("[MOCK] Endpoint 4: validate-document (aleatoria)");
+            const valida = Math.random() > 0.5;
+
+            if (!valida) {
+                console.log("[MOCK] DOCUMENTO INVALIDO");
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ❌ La documentación es incorrecta. Motivo: ejemplo. Consejos: reenviá una foto más clara.`));
+                } else {
+                    client.sendMessage(from, "❌ La documentación es incorrecta. Motivo: ejemplo. Consejos: reenviá una foto más clara.");
                 }
                 return;
             }
+
+            console.log("[MOCK] DOCUMENTO VÁLIDO");
+            if (MOCK_MSG_SEND) {
+                console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ✔ Documento válido. Procesado correctamente.`));
+            } else {
+                client.sendMessage(from, "✔ Documento válido. Procesado correctamente.");
+            }
+            return;
+        } else {
+            // ============================================================
+            // 🟢 MODO API REAL — descarga el media y envía a CelerPass
+            // ============================================================
+            try {
+                console.log("[API] Descargando archivo media...");
+                const media = await msg.downloadMedia();
+                const base64 = media.data;
+
+                // idDocument y clientId se obtendrían del estado de conversación;
+                // por ahora usamos los datos del cliente validado en Endpoint 1
+                const idDocument = null; // TODO: rastrear documento esperado por usuario
+                const clientId = clienteValidado?.clientId || null;
+
+                const resultado = await apiService.validateDocument(idDocument, clientId, base64);
+
+                if (!resultado.documentValid) {
+                    const motivo = resultado.message || "Documento inválido";
+                    const sugerencia = resultado.sugestion ? ` Sugerencia: ${resultado.sugestion}` : "";
+                    if (MOCK_MSG_SEND) {
+                        console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ❌ ${motivo}.${sugerencia}`));
+                    } else {
+                        client.sendMessage(from, `❌ ${motivo}.${sugerencia}`);
+                    }
+                    return;
+                }
+
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ✔ ${resultado.message || 'Documento válido. Procesado correctamente.'}`));
+                } else {
+                    client.sendMessage(from, `✔ ${resultado.message || 'Documento válido. Procesado correctamente.'}`);
+                }
+            } catch (err) {
+                console.log("[ERROR] Fallo al validar documento via API:", err.message || err);
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ⚠ Hubo un error al procesar tu documento. Intentá de nuevo.`));
+                } else {
+                    client.sendMessage(from, "⚠ Hubo un error al procesar tu documento. Intentá de nuevo.");
+                }
+            }
+            return;
         }
+    }
 
-        // Si llega texto
-        console.log("[LOG] Usuario envió texto:", body);
+    // Si llega texto
+    console.log("[LOG] Usuario envió texto:", body);
 
-        if (body === "1") {
-            console.log("[LOG] Usuario eligió opción 1");
+    if (body === "1") {
+        console.log("[LOG] Usuario eligió opción 1");
+        if (MOCK_MSG_SEND) {
+            console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: Enviame la foto del DNI ahora.`));
+        } else {
             client.sendMessage(from, "Enviame la foto del DNI ahora.");
-            return;
         }
+        return;
+    }
 
-        if (body === "2") {
-            console.log("[LOG] Usuario eligió opción 2");
+    if (body === "2") {
+        console.log("[LOG] Usuario eligió opción 2");
+        if (MOCK_MSG_SEND) {
+            console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: Enviame la factura en PDF o foto.`));
+        } else {
             client.sendMessage(from, "Enviame la factura en PDF o foto.");
-            return;
         }
+        return;
+    }
+};
 
-    });
+const listenMessage = () => {
+    client.on('message', handleIncomingMessage);
 };
 
 
@@ -449,35 +566,9 @@ function log(from, answer, response) {
 }
 
 /**
- * Revisamos si tenemos credenciales guardadas para inciar sessio
- * este paso evita volver a escanear el QRCODE
+ * El bot ahora usa LocalAuth exclusivamente, que maneja la sesión automáticamente
+ * en la carpeta ./.wwebjs_auth. No se requiere session.json antiguo.
  */
-const withSession = () => {
-    // Si exsite cargamos el archivo con las credenciales
-    const spinner = ora(`Cargando ${chalk.yellow('Validando session con Whatsapp...')}`);
-    sessionData = require(SESSION_FILE_PATH);
-    spinner.start();
-    client = new Client({ puppeteer: { headless: true, args: ['--no-sandbox'] }, session: sessionData });
-
-    client.on('ready', () => {
-        console.log('Client is ready!');
-        spinner.stop();
-        otraSession = false;
-        clientReady = true;
-        connectionReady();
-    });
-
-    client.on('auth_failure', () => {
-        spinner.stop();
-        if (fs.existsSync(SESSION_FILE_PATH)) {
-            fs.unlinkSync(SESSION_FILE_PATH)
-            withOutSession()
-        }
-        console.log('** Error de autentificacion vuelve a generar el QRCODE (Borrar el archivo session.json) **');
-    })
-
-    client.initialize();
-}
 
 /**
  * Generamos un QRCODE para iniciar sesion
@@ -496,23 +587,30 @@ const withOutSession = () => {
             dataPath: AUTH_DIR
         }),
 
-        webVersionCache: {
+        /* webVersionCache: {
             type: 'remote',
             remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-        },
+        }, */
 
         puppeteer: {
             headless: true,
-            // Si querés usar Chrome instalado, descomentá y ajustá la ruta:
-            // executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-extensions',
                 '--disable-gpu',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--flag-switches-begin --disable-site-isolation-trials --flag-switches-end'
+                '--no-zygote',
+                '--single-process',
+                '--disable-client-side-phishing-detection',
+                '--disable-default-apps',
+                '--disable-popup-blocking',
+                '--disable-prompt-on-repost',
+                '--disable-sync',
+                '--disable-translate',
+                '--metrics-recording-only',
+                '--no-first-run',
+                '--safebrowsing-disable-auto-update'
             ]
         }
     });
@@ -571,7 +669,18 @@ const withOutSession = () => {
 
     // 📌 Iniciar cliente
     client.initialize().catch(err => {
-        console.log("💥 Error en initialize:", err);
+        console.error("💥 Error crítico en initialize:", err);
+
+        // Si hay una falla de sesión (como TargetCloseError o similar) al inicio, 
+        // intentamos limpiar la carpeta y forzar un re-escaneo
+        if (err.message.includes('target') || err.message.includes('Protocol error')) {
+            console.log("🧹 Detectado error de sesión/browser. Limpiando y reintentando...");
+            if (fs.existsSync(AUTH_DIR)) {
+                fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+            }
+            // Pequeña espera antes de reintentar
+            setTimeout(() => withOutSession(), 3000);
+        }
     });
 };
 
@@ -702,7 +811,11 @@ app.get('/inicio', (req, res) => {
 // })
 
 app.get('/actualizar', async (req, res) => {
-    res.send({ clientReady: clientReady, otraSession: otraSession }).end()
+    res.send({
+        clientReady: clientReady,
+        otraSession: otraSession,
+        mockMode: MOCK_MSG_SEND
+    }).end()
 })
 
 app.get('/reconectar', async (req, res) => {
@@ -736,9 +849,50 @@ app.get('/desconectar', (req, res) => {
 
 app.get('/codigo', async (req, res) => {
     qr.toDataURL(qrclient, (err, src) => {
-        if (err) res.send("Error occured");
-        res.send({ src: src, clientReady: clientReady, otraSession: otraSession })
+        if (err) return res.status(500).send({ error: "QR Error" });
+
+        const session = (client && clientReady && client.info) ? {
+            pushname: client.info.pushname,
+            number: client.info.wid.user
+        } : null;
+
+        res.send({
+            src: src,
+            clientReady: clientReady,
+            otraSession: otraSession,
+            mockMode: MOCK_MSG_SEND,
+            logs: serverLogs,
+            session: session
+        })
     });
+});
+
+app.post('/simulate', async (req, res) => {
+    const { from, body, hasMedia, mediaData } = req.body;
+
+    if (!from || (!body && !hasMedia)) {
+        return res.status(400).send({ error: "Faltan datos (from, body/hasMedia)" });
+    }
+
+    console.log(`[SIMULACIÓN] Recibiendo mensaje de ${from}: ${body || '[SIN TEXTO]'}${hasMedia ? ' (CON ARCHIVO)' : ''}`);
+
+    const simulatedMsg = {
+        from: from.includes('@c.us') ? from : `${from}@c.us`,
+        body: body || "",
+        hasMedia: !!hasMedia,
+        downloadMedia: async () => ({ data: mediaData || "base64_dummy_data" }),
+        reply: async (text) => {
+            console.log(`[SIMULATED REPLY to ${from}]: ${text}`);
+        }
+    };
+
+    try {
+        await handleIncomingMessage(simulatedMsg);
+        res.send({ status: "success", info: "Mensaje simulado procesado" });
+    } catch (err) {
+        console.error("[ERROR] Simulación fallida:", err);
+        res.status(500).send({ error: err.message });
+    }
 });
 
 app.post('/send', sendMessagePost);

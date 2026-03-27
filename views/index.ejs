@@ -1,73 +1,469 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        <%= titulo %>
-    </title>
-    <!-- CSS only -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
-    <link rel="shortcut icon" href="/img/favicon.ico" >
+    <title>Conector WhatsApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .4;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
 </head>
 
-<body>
-    <div class="container mt-5">
-        <div class=" row mt-5">
-            <h3 style="display: flex;justify-content: center;">
-                <%= titulo %>
-            </h3>
-            <div class="col-md-6 mt-5 text-center">
-                <img src="/img/foto.png" alt="foto del chat">
-            </div>
-            
-                
-                    <% if(otraSession){ %>
-                   <div  class="col-md-6 mt-5 text-center" style="align-self: center;">
-                           <h4 class="rojo">Whatsapp esta abierto en otra sesión</h4>
-                           <h4>Pulsar "USAR AQUI" para volver a ejecutar el chatbot</h4>       
-                           <button onclick="reconectar()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">USAR AQUI</button>
-                           <a href="/desconectar" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Cerrar Sesión</a>
-                   </div>
-                   <% } %>
-                
+<body class="bg-[#080808] text-zinc-100 min-h-screen overflow-hidden text-base selection:bg-emerald-500/30">
+    <div id="root"></div>
 
-                
-                    
-                    <% if(clientReady && !otraSession){ %>
-                <div  class="col-md-6 mt-5 text-center" style="align-self: center;">
-                        <h4>El bot esta funcionando de forma exitosa</h4>     <br>            
-                        <button onclick="actualizaEstado()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Actualizar Estado</button>
-                        <a href="/desconectar" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Cerrar Sesión</a>
-                    </div>
-                    <% } %>
-              
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
 
-                    <% if(!clientReady){ %>
-                    <div  class="col-md-6 mt-5" style="align-self: center;">
-                                <img width="60%" id="waqrcode" src="https://media.tenor.com/images/a742721ea2075bc3956a2ff62c9bfeef/tenor.gif"><br>
-                                <p>*Presione actualizar para cargar un nuevo codigo QR</p>
-                                <div>
-                                
-                                    <button onclick="actualizaQR()" class="btn btn-success btn-lg active" role="button" aria-pressed="true">Actualizar</button>
+        const motion = (window.Motion && window.Motion.motion) ? window.Motion.motion :
+            ((window.FramerMotion && window.FramerMotion.motion) ? window.FramerMotion.motion : { div: 'div', button: 'button', h3: 'h3', p: 'p' });
+        const AnimatePresence = (window.Motion && window.Motion.AnimatePresence) ? window.Motion.AnimatePresence :
+            ((window.FramerMotion && window.FramerMotion.AnimatePresence) ? window.FramerMotion.AnimatePresence : React.Fragment);
+
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className}></i>;
+        };
+
+        const Dashboard = () => {
+            const [state, setState] = useState({
+                clientReady: false,
+                otraSession: false,
+                src: null,
+                loading: true,
+                logs: []
+            });
+            const [showFullLogs, setShowFullLogs] = useState(false);
+            const [showSimulador, setShowSimulador] = useState(false);
+            const logContainerRef = useRef(null);
+            const modalLogContainerRef = useRef(null);
+
+            const fetchData = useCallback(async () => {
+                try {
+                    const res = await fetch('/codigo');
+                    const data = await res.json();
+                    setState(prev => ({ ...prev, ...data, loading: false }));
+                } catch (err) { console.error("Sync error"); }
+            }, []);
+
+            useEffect(() => {
+                const interval = setInterval(fetchData, 5000);
+                fetchData();
+                return () => clearInterval(interval);
+            }, [fetchData]);
+
+            // Auto-scroll
+            useEffect(() => {
+                if (logContainerRef.current) {
+                    logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+                }
+            }, [state.logs]);
+
+            useEffect(() => {
+                if (showFullLogs && modalLogContainerRef.current) {
+                    modalLogContainerRef.current.scrollTop = modalLogContainerRef.current.scrollHeight;
+                }
+            }, [state.logs, showFullLogs]);
+
+            const handleLogout = () => { window.location.href = "/desconectar"; };
+            const handleReconectar = async () => { try { await fetch('/reconectar'); fetchData(); } catch (err) { } };
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    {/* Sidebar */}
+                    <aside className="w-80 bg-[#0d0d0d] border-r border-zinc-900 flex flex-col p-10 hidden lg:flex">
+                        <div className="flex items-center gap-5 mb-16">
+                            <img src="/img/logo-vertical.png" alt="Colossus Logo" className="w-14 h-auto" />
+                            <h1 className="text-2xl font-bold tracking-tighter text-white">COLOSSUS</h1>
+                        </div>
+
+                        <nav className="flex-1 space-y-4">
+                            <button className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-bold bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 tracking-wide">
+                                <Icon name="home" className="w-6 h-6" />
+                                <span>PANEL DE CONTROL</span>
+                            </button>
+                            {state.clientReady && state.mockMode && (
+                                <button
+                                    onClick={() => setShowSimulador(true)}
+                                    className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-bold bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/20 transition-all tracking-wide"
+                                >
+                                    <Icon name="flask-conical" className="w-6 h-6" />
+                                    <span>SIMULADOR DE FLUJO</span>
+                                </button>
+                            )}
+                            <button className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-medium text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all tracking-wide">
+                                <Icon name="message-circle" className="w-6 h-6" />
+                                <span>CENTRO ASISTENCIA</span>
+                            </button>
+                        </nav>
+
+                        <div className="mt-auto p-6 bg-zinc-900/40 rounded-3xl border border-zinc-800/50 space-y-3">
+                            <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">ESTADO BOT</h4>
+                            {state.clientReady && state.session ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-emerald-400 font-bold uppercase truncate">
+                                            {state.session.pushname || 'Usuario WhatsApp'}
+                                        </p>
+                                        <p className="text-xs text-zinc-500 font-mono tracking-tighter">
+                                            +{state.session.number}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="flex items-center justify-center gap-2.5 w-full py-2.5 bg-zinc-900 border border-zinc-800 hover:bg-rose-500/10 hover:border-rose-500/20 hover:text-rose-500 text-zinc-500 font-bold rounded-xl transition-all text-[10px] tracking-[0.2em] uppercase shadow-sm"
+                                    >
+                                        <Icon name="log-out" className="w-3.5 h-3.5" />
+                                        CERRAR SESIÓN
+                                    </button>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-zinc-300 leading-relaxed font-semibold uppercase">
+                                    {state.clientReady ? 'OPERATIVO Y CONECTADO' : 'CERRADO - REQUIERE VINCULACIÓN'}
+                                </p>
+                            )}
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col bg-[#080808]">
+                        <header className="h-24 border-b border-zinc-900 flex items-center justify-between px-12 bg-[#080808]/80 backdrop-blur-md z-10 sticky top-0">
+                            <h2 className="text-base font-bold text-zinc-400 uppercase tracking-[0.2em] leading-none">CONECTOR DE WHATSAPP</h2>
+                            <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-zinc-900 border border-zinc-800 shadow-inner">
+                                <div className={`w-3 h-3 rounded-full ${state.clientReady ? 'bg-emerald-500 status-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]'}`} />
+                                <span className="text-sm font-bold text-zinc-200 uppercase tracking-widest ml-1 leading-none">
+                                    {state.clientReady ? 'ACTIVO' : 'SINCRONIZANDO'}
+                                </span>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-y-auto p-12 flex items-start justify-center">
+                            <div className={`max-w-6xl w-full grid grid-cols-1 ${state.clientReady ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-12`}>
+
+                                <motion.div className="glass rounded-[3rem] p-12 flex flex-col items-center justify-center min-h-[500px]">
+                                    <AnimatePresence mode="wait">
+                                        {!state.clientReady ? (
+                                            <motion.div
+                                                key="qr"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                className="flex flex-col xl:flex-row items-center justify-center gap-10 xl:gap-20 w-full max-w-6xl"
+                                            >
+                                                {/* Contenido Izquierdo: Texto e Instrucciones */}
+                                                <div className="flex-1 flex flex-col items-center xl:items-start text-center xl:text-left max-w-md">
+                                                    <h3 className="text-3xl font-bold mb-4 text-white">Inicia sesión en WhatsApp</h3>
+                                                    <p className="text-sm text-zinc-400 mb-8 leading-relaxed font-medium max-w-sm">
+                                                        Escanea este código QR para vincular una cuenta existente de WhatsApp a este dispositivo.
+                                                    </p>
+
+                                                    <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-[1.5rem] p-6 text-left space-y-4 shadow-inner">
+                                                        {[
+                                                            { id: 1, text: <>Abre <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md font-bold inline-flex items-center gap-1"><Icon name="message-circle" className="w-3 h-3" /> WhatsApp</span> en tu teléfono.</> },
+                                                            { id: 2, text: <>Toca <b>Ajustes</b> <Icon name="settings" className="w-3.5 h-3.5 inline-block opacity-50 mx-0.5" /> en iPhone o <b>Menú</b> <Icon name="more-vertical" className="w-3.5 h-3.5 inline-block opacity-50 mx-0.5" /> en Android.</> },
+                                                            { id: 3, text: <>Toca <b>Dispositivos vinculados</b> y, luego, <b>Vincular un dispositivo</b>.</> },
+                                                            { id: 4, text: <>Apunta tu teléfono hacia esta pantalla para escanear el código QR.</> },
+                                                            { id: 5, text: <>Mantén ambas aplicaciones abiertas y conectadas a internet mientras se cargan tus chats.</>, italic: true, color: 'text-zinc-400' }
+                                                        ].map(item => (
+                                                            <div key={item.id} className="flex gap-4 items-start">
+                                                                <span className="text-zinc-500 font-bold min-w-[1.2rem]">{item.id}.</span>
+                                                                <p className={`text-sm ${item.color || 'text-zinc-300'} leading-snug ${item.italic ? 'italic' : ''}`}>
+                                                                    {item.text}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Contenido Derecho: Código QR */}
+                                                <div className="bg-white p-8 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] flex items-center justify-center border-[12px] border-zinc-950 shrink-0 transform hover:scale-105 transition-transform duration-500">
+                                                    {state.src ? (
+                                                        <img src={state.src} alt="Escanee QR" className="w-64 h-64 object-contain" />
+                                                    ) : (
+                                                        <div className="w-16 h-16 border-4 border-zinc-200 border-t-emerald-500 rounded-full animate-spin" />
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center">
+                                                <div className="w-32 h-32 bg-emerald-500/10 rounded-full flex items-center justify-center mb-10 shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+                                                    <Icon name="check-circle" className="w-20 h-20 text-emerald-500" />
+                                                </div>
+                                                <h3 className="text-2xl font-bold mb-5 tracking-[0.4em] uppercase text-emerald-500">CONECTADO</h3>
+                                                <div className="px-8 py-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-sm text-emerald-500 font-bold tracking-widest uppercase shadow-sm">
+                                                    SISTEMA OPERATIVO
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+
+                                <div className="space-y-10">
+
+                                    {state.clientReady && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="glass rounded-[2.5rem] p-12 flex flex-col min-h-[350px]"
+                                        >
+                                            <div className="flex items-center justify-between mb-10">
+                                                <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500 flex items-center gap-4">
+                                                    <Icon name="layout-list" className="w-6 h-6 opacity-40" />
+                                                    ACTIVIDAD RECIENTE
+                                                </h3>
+                                                <button
+                                                    onClick={() => setShowFullLogs(true)}
+                                                    className="p-2.5 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-400 hover:text-white transition-all shadow-sm"
+                                                >
+                                                    <Icon name="maximize" className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            <div
+                                                ref={logContainerRef}
+                                                className="flex-1 space-y-6 overflow-y-auto pr-4 max-h-[220px] scroll-smooth"
+                                            >
+                                                {state.logs && state.logs.length > 0 ? state.logs.map(log => (
+                                                    <div key={log.id} className="flex gap-6 text-sm font-bold leading-normal tracking-tight animate-in slide-in-from-right-4 duration-300 items-start hover:bg-white/[0.02] p-1 rounded-lg">
+                                                        <span className="text-zinc-600 font-mono w-24 shrink-0 text-xs pt-0.5">{log.time}</span>
+                                                        <span className={`flex-1 ${log.type === 'error' ? 'text-rose-500' : 'text-zinc-300 uppercase'}`}>
+                                                            {log.msg}
+                                                        </span>
+                                                    </div>
+                                                )) : (
+                                                    <div className="flex flex-col items-center justify-center h-full opacity-20 py-10">
+                                                        <Icon name="clock" className="w-12 h-12 mb-4" />
+                                                        <p className="text-xs uppercase font-bold tracking-widest">Esperando actividad...</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+
                                 </div>
                             </div>
-                            
-                            <% } %>
-               
-            </div>
+                        </div>
 
-        </div>
-    </div>
- 
-    <!-- JavaScript Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
-        crossorigin="anonymous"></script>
-    <script src="/js/script.js"></script>
+                        <footer className="h-16 border-t border-zinc-900 flex items-center justify-center px-12 bg-[#0d0d0d]">
+                            <span className="text-sm font-bold text-zinc-500 tracking-[0.5em] uppercase opacity-40 leading-none">Desarrollado por Colossus 2026</span>
+                        </footer>
+                    </main>
+
+                    {/* MODAL FULL LOGS */}
+                    <AnimatePresence>
+                        {showFullLogs && (
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-8 lg:p-20"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                                    className="bg-[#0c0c0c] border border-zinc-800 w-full max-w-6xl h-full rounded-[3rem] overflow-hidden flex flex-col shadow-2xl"
+                                >
+                                    <div className="p-8 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/20">
+                                        <div className="flex items-center gap-5">
+                                            <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500">
+                                                <Icon name="terminal" className="w-8 h-8" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold tracking-tight text-white uppercase">Consola de Actividad Completa</h3>
+                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Monitoreo técnico en tiempo real</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowFullLogs(false)}
+                                            className="p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl border border-zinc-700 text-zinc-300 transition-all font-bold flex items-center gap-3 uppercase text-xs"
+                                        >
+                                            <Icon name="x" className="w-6 h-6" />
+                                            <span>Cerrar Vista</span>
+                                        </button>
+                                    </div>
+                                    <div
+                                        ref={modalLogContainerRef}
+                                        className="flex-1 overflow-y-auto p-12 space-y-6 scroll-smooth bg-black/20"
+                                    >
+                                        {state.logs && state.logs.map(log => (
+                                            <div key={log.id} className="flex gap-8 text-base font-bold leading-normal tracking-tight p-4 rounded-2xl bg-zinc-900/20 border border-zinc-800/10 hover:border-zinc-800 transition-all group">
+                                                <span className="text-zinc-600 font-mono w-28 shrink-0 text-xs pt-1">{log.time}</span>
+                                                <span className={`flex-1 ${log.type === 'error' ? 'text-rose-500' : 'text-zinc-300 uppercase'}`}>
+                                                    {log.msg}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        <div className="pt-20 text-center opacity-20 uppercase text-xs font-bold tracking-[0.5em]">--- Fin del Historial Reciente ---</div>
+                                    </div>
+                                    <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-center items-center gap-4">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full status-pulse"></div>
+                                        <span className="text-xs font-bold text-zinc-500 tracking-widest uppercase">Streaming de datos activo</span>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* MODAL SIMULADOR DE FLUJO */}
+                    <AnimatePresence>
+                        {showSimulador && state.mockMode && (
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-8 lg:p-20"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                                    className="bg-[#0c0c0c] border border-zinc-800 w-full max-w-2xl rounded-[3rem] overflow-hidden flex flex-col shadow-2xl relative"
+                                >
+                                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                                        <Icon name="flask-conical" className="w-48 h-48 text-amber-500" />
+                                    </div>
+                                    <div className="p-8 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/20 relative z-10">
+                                        <div className="flex items-center gap-5">
+                                            <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500">
+                                                <Icon name="flask-conical" className="w-8 h-8" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold tracking-tight text-white uppercase">Simulador de Flujo</h3>
+                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Modo Desarrollo</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowSimulador(false)}
+                                            className="p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl border border-zinc-700 text-zinc-300 transition-all font-bold flex items-center gap-3 uppercase text-xs"
+                                        >
+                                            <Icon name="x" className="w-6 h-6" />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-12 space-y-8 relative z-10">
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest pl-2">Número de Usuario</label>
+                                                <input 
+                                                    id="sim-number"
+                                                    type="text" 
+                                                    placeholder="Ej: 5491130717173" 
+                                                    className="w-full bg-black/40 border border-zinc-800 rounded-2xl px-6 py-4 text-sm focus:border-amber-500/50 outline-none text-zinc-200 transition-all"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest pl-2">Mensaje o Respuesta</label>
+                                                <input 
+                                                    id="sim-body"
+                                                    type="text" 
+                                                    placeholder="Ej: 1, 2, Hola" 
+                                                    className="w-full bg-black/40 border border-zinc-800 rounded-2xl px-6 py-4 text-sm focus:border-amber-500/50 outline-none text-zinc-200 transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest pl-2">Adjuntar archivo de prueba (Opcional)</label>
+                                            <input 
+                                                id="sim-file"
+                                                type="file" 
+                                                className="w-full text-xs text-zinc-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:uppercase file:bg-zinc-800 file:text-zinc-400 hover:file:bg-zinc-700 transition-all cursor-pointer bg-black/40 border border-zinc-800 rounded-2xl p-2"
+                                            />
+                                            <p className="text-[10px] text-zinc-500 italic px-2">Al subir un archivo, se simulará que el usuario envió documentación.</p>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                const numberElement = document.getElementById('sim-number');
+                                                const bodyElement = document.getElementById('sim-body');
+                                                const fileInput = document.getElementById('sim-file');
+                                                
+                                                if (!numberElement || !bodyElement || !fileInput) return;
+                                                
+                                                const number = numberElement.value;
+                                                const body = bodyElement.value;
+                                                const file = fileInput.files[0];
+
+                                                if (!number) return alert('Ingresar número');
+
+                                                const sendSimulate = (hasMedia, mediaData = null) => {
+                                                    fetch('/simulate', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ from: number, body: body || "", hasMedia, mediaData })
+                                                    }).then(() => {
+                                                        bodyElement.value = '';
+                                                        fileInput.value = '';
+                                                        setShowSimulador(false);
+                                                    });
+                                                };
+
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (e) => {
+                                                        const base64 = e.target.result.split(',')[1];
+                                                        sendSimulate(true, base64);
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                } else {
+                                                    if (!body) return alert('Completar mensaje o adjuntar archivo');
+                                                    sendSimulate(false);
+                                                }
+                                            }}
+                                            className="w-full py-5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-[1.5rem] shadow-[0_0_30px_rgba(245,158,11,0.2)] transition-all text-sm tracking-[0.2em] uppercase mt-4"
+                                        >
+                                            Enviar Mensaje Simulado
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
 </body>
 
 </html>
