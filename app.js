@@ -34,6 +34,7 @@ console.error = function (...args) {
 // ---------------------------------
 const fs = require('fs');
 const mimeDb = require('mime-db')
+
 const express = require('express');
 const moment = require('moment');
 const ora = require('ora');
@@ -55,6 +56,10 @@ let sessionData;
 let qrclient = "Not found";
 let clientReady = false;
 let otraSession = false;
+let qrGenerationTimer = null; // Timer para frenar la generación de QR
+
+// Estado de conversación en memoria
+const userStates = new Map();
 
 /**
  * 🔁 FLAG DE MODO
@@ -62,7 +67,7 @@ let otraSession = false;
  * true  → usa los mocks locales (modo desarrollo/testing)
  */
 const workWithMock = false;
-const withDummyNumberCris = true;
+const withDummyNumberCris = false;
 const DUMMY_NUMBER_CRIS = "5491158232588";
 const MOCK_MSG_SEND = process.env.MOCK_MSG_SEND === 'true'; // false → envía mensajes reales | true → loguea en consola sin enviar
 
@@ -73,6 +78,7 @@ app.set('appName', 'Chatbot personalizado');
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views');
 app.use(express.static(__dirname + "/public"));
+app.use('/mediaSend', express.static(__dirname + '/mediaSend'));
 
 
 
@@ -192,6 +198,54 @@ const buildDynamicPendingDocsMessage = (cliente, companyName, documentList) => {
 
 
 
+const sendPendingDocsMenu = async (chatId, clienteValidado, contactName = "Cliente") => {
+    try {
+        const docsPendientes = await apiService.getPendingDocuments(clienteValidado.clientId);
+        
+        // --- 🌟 NUEVO: Si no hay docs, enviar QR ---
+        if (!docsPendientes?.documentList || docsPendientes.documentList.length === 0) {
+            console.log(`[LOG] Sin documentos pendientes para ${clienteValidado.clientId}. Generando QR...`);
+            const qrData = await apiService.getClientQR(clienteValidado.clientId);
+            if (qrData?.base64) {
+                const media = new MessageMedia('image/png', qrData.base64);
+                await client.sendMessage(chatId, media, { caption: "No tienes documentación pendiente. Aquí tienes tu QR de acceso." });
+            } else {
+                await client.sendMessage(chatId, "No tienes documentación pendiente. Estamos procesando tu QR, por favor reintenta en unos momentos.");
+            }
+            return;
+        }
+
+        const activeNumber = chatId.replace('@c.us', '');
+        let cleanNumberCheck = activeNumber.startsWith('54') && activeNumber.length === 12 
+            ? '549' + activeNumber.substring(2) 
+            : activeNumber;
+            
+        const targetNumber = withDummyNumberCris ? DUMMY_NUMBER_CRIS : cleanNumberCheck;
+
+        userStates.set(targetNumber, {
+            clientId: clienteValidado.clientId,
+            pendingDocs: docsPendientes.documentList,
+            step: "ESPERANDO_OPCION_DOCUMENTO",
+            selectedDocId: null
+        });
+
+        const mensaje = buildDynamicPendingDocsMessage(
+            { name: contactName },
+            "nuestra plataforma",
+            docsPendientes.documentList
+        );
+
+        if (MOCK_MSG_SEND) {
+            console.log(chalk.yellow(`[MOCK SEND MENU] Para: ${chatId} | Mensaje: ${mensaje}`));
+        } else {
+            await client.sendMessage(chatId, mensaje);
+            console.log(`[LOG] Menú de documentos enviado a ${chatId}`);
+        }
+    } catch (err) {
+        console.log("[ERROR] Fallo al enviar menú de documentos:", err.message);
+    }
+};
+
 const activeMessag = () => {
     setInterval(async () => {
         if (!clientReady) {
@@ -270,20 +324,6 @@ const activeMessag = () => {
                     console.log("-------------------------------------------");
                     console.log(`[LOG] Procesando cliente: ${cliente.name} | ${cliente.number}`);
 
-                    let docsPendientes;
-
-                    if (workWithMock) {
-                        docsPendientes = mockPendingDocuments(cliente.clientId);
-                    } else {
-                        docsPendientes = await apiService.getPendingDocuments(cliente.clientId);
-                    }
-
-                    const mensaje = buildDynamicPendingDocsMessage(
-                        cliente,
-                        companyName,
-                        docsPendientes.documentList
-                    );
-
                     let cleanNumber = cliente.number.replace(/\D/g, '');
                     if (cleanNumber.startsWith('54') && cleanNumber.length === 12) {
                         cleanNumber = '549' + cleanNumber.substring(2);
@@ -292,6 +332,51 @@ const activeMessag = () => {
                     if (withDummyNumberCris) {
                         cleanNumber = DUMMY_NUMBER_CRIS;
                     }
+
+                    let docsPendientes;
+
+                    if (workWithMock) {
+                        docsPendientes = mockPendingDocuments(cliente.clientId);
+                    } else {
+                        docsPendientes = await apiService.getPendingDocuments(cliente.clientId);
+                    }
+
+                    // --- 🌟 NUEVO: Si no hay docs, enviar QR ---
+                    if (!docsPendientes?.documentList || docsPendientes.documentList.length === 0) {
+                        console.log(`[LOG] Sin docs para ${cliente.name} (${cleanNumber}). Enviando QR...`);
+                        
+                        if (MOCK_MSG_SEND) {
+                            console.log(chalk.yellow(`[MOCK QR] Para: ${cliente.name} (${cleanNumber})`));
+                        } else {
+                            try {
+                                const contactId = await client.getNumberId(cleanNumber);
+                                if (contactId) {
+                                    const qrData = await apiService.getClientQR(cliente.clientId);
+                                    if (qrData?.base64) {
+                                        const media = new MessageMedia('image/png', qrData.base64);
+                                        await client.sendMessage(contactId._serialized, media, { caption: `Hola ${cliente.name}, aquí tienes tu código QR de acceso.` });
+                                    }
+                                }
+                            } catch (err) {
+                                console.log(`[ERROR] enviando QR a ${cliente.name}:`, err.message);
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Guardar estado inicial para esperar opción del cliente
+                    userStates.set(cleanNumber, {
+                        clientId: cliente.clientId,
+                        pendingDocs: docsPendientes?.documentList || [],
+                        step: "ESPERANDO_OPCION_DOCUMENTO",
+                        selectedDocId: null
+                    });
+
+                    const mensaje = buildDynamicPendingDocsMessage(
+                        cliente,
+                        companyName,
+                        docsPendientes.documentList
+                    );
 
                     if (MOCK_MSG_SEND) {
                         console.log(chalk.yellow(`[MOCK SEND PENDING] Para: ${cliente.name} (${cleanNumber}) | Mensaje: ${mensaje}`));
@@ -332,9 +417,9 @@ const handleIncomingMessage = async (msg) => {
     console.log("Mensaje:", body);
     console.log(`[LOG] Modo: ${workWithMock ? 'MOCK' : 'API REAL'}`);
 
-    // Ignorar grupos
-    if (from.toString().length > 27) {
-        console.log("[LOG] Es un grupo → no proceso nada");
+    // Ignorar estados y grupos
+    if (from === 'status@broadcast' || from.toString().length > 27) {
+        console.log("[LOG] Mensaje de estado o grupo → ignorando");
         return;
     }
 
@@ -367,10 +452,32 @@ const handleIncomingMessage = async (msg) => {
                 const media = await msg.downloadMedia();
                 const base64 = media.data;
 
-                // idDocument y clientId se obtendrían del estado de conversación;
-                // por ahora usamos los datos del cliente validado en Endpoint 1
-                const idDocument = null; // TODO: rastrear documento esperado por usuario
-                const clientId = clienteValidado?.clientId || null;
+                const numeroParaEstado = from.replace('@c.us', '');
+                const cleanNumberEstado = numeroParaEstado.startsWith('54') && numeroParaEstado.length === 12 
+                    ? '549' + numeroParaEstado.substring(2) 
+                    : numeroParaEstado;
+                const activeNumber = withDummyNumberCris ? DUMMY_NUMBER_CRIS : cleanNumberEstado;
+                
+                const uState = userStates.get(activeNumber);
+                const idDocument = uState?.selectedDocId || null; 
+                const clientId = uState?.clientId || clienteValidado?.clientId || null;
+
+                if (!idDocument) {
+                    console.log("[LOG] Usuario envió media sin seleccionar documento primero.");
+                    const replyMsg = "⚠️ Por favor, seleccioná primero qué documento vas a subir enviando el número correspondiente del menú.";
+                    if (MOCK_MSG_SEND) {
+                        console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ${replyMsg}`));
+                    } else {
+                        client.sendMessage(from, replyMsg);
+                    }
+                    return;
+                }
+                
+                // Resetear estado opcionalmente
+                if (uState) {
+                    uState.step = "ESPERANDO_OPCION_DOCUMENTO";
+                    uState.selectedDocId = null;
+                }
 
                 const resultado = await apiService.validateDocument(idDocument, clientId, base64);
 
@@ -434,10 +541,32 @@ const handleIncomingMessage = async (msg) => {
                 const media = await msg.downloadMedia();
                 const base64 = media.data;
 
-                // idDocument y clientId se obtendrían del estado de conversación;
-                // por ahora usamos los datos del cliente validado en Endpoint 1
-                const idDocument = null; // TODO: rastrear documento esperado por usuario
-                const clientId = clienteValidado?.clientId || null;
+                const numeroParaEstado = from.replace('@c.us', '');
+                const cleanNumberEstado = numeroParaEstado.startsWith('54') && numeroParaEstado.length === 12 
+                    ? '549' + numeroParaEstado.substring(2) 
+                    : numeroParaEstado;
+                const activeNumber = withDummyNumberCris ? DUMMY_NUMBER_CRIS : cleanNumberEstado;
+                
+                const uState = userStates.get(activeNumber);
+                const idDocument = uState?.selectedDocId || null; 
+                const clientId = uState?.clientId || clienteValidado?.clientId || null;
+
+                if (!idDocument) {
+                    console.log("[LOG] Usuario envió media sin seleccionar documento primero.");
+                    const replyMsg = "⚠️ Por favor, seleccioná primero qué documento vas a subir enviando el número correspondiente del menú.";
+                    if (MOCK_MSG_SEND) {
+                        console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ${replyMsg}`));
+                    } else {
+                        client.sendMessage(from, replyMsg);
+                    }
+                    return;
+                }
+                
+                // Resetear estado opcionalmente
+                if (uState) {
+                    uState.step = "ESPERANDO_OPCION_DOCUMENTO";
+                    uState.selectedDocId = null;
+                }
 
                 const resultado = await apiService.validateDocument(idDocument, clientId, base64);
 
@@ -471,9 +600,67 @@ const handleIncomingMessage = async (msg) => {
 
     // Si llega texto
     console.log("[LOG] Usuario envió texto:", body);
+    
+    const numeroText = from.replace('@c.us', '');
+    const cleanNumberText = numeroText.startsWith('54') && numeroText.length === 12 
+        ? '549' + numeroText.substring(2) 
+        : numeroText;
+        
+    const activeNumText = withDummyNumberCris ? DUMMY_NUMBER_CRIS : cleanNumberText;
+    const uStateText = userStates.get(activeNumText);
 
+    if (uStateText && uStateText.step === "ESPERANDO_OPCION_DOCUMENTO") {
+        const optionIndex = parseInt(body) - 1;
+        if (!isNaN(optionIndex) && optionIndex >= 0 && optionIndex < (uStateText.pendingDocs?.length || 0)) {
+            const selectedDoc = uStateText.pendingDocs[optionIndex];
+            console.log(`[LOG] Usuario eligió opción ${body} -> Documento: ${selectedDoc.nameDocument}`);
+            
+            uStateText.selectedDocId = selectedDoc.idDocument;
+            uStateText.step = "ESPERANDO_FOTO";
+            
+            const replyMsg = `Entendido. Por favor enviame la foto o PDF de *${selectedDoc.nameDocument}* ahora.`;
+            if (MOCK_MSG_SEND) {
+                console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ${replyMsg}`));
+            } else {
+                client.sendMessage(from, replyMsg);
+            }
+            return;
+        } else {
+            // Si mandó algo que no es un número válido de la lista
+            console.log(`[LOG] Opción numérica inválida: ${body}`);
+            const replyMsg = `⚠️ Opción inválida. Por favor, respondé con un número del 1 al ${uStateText.pendingDocs?.length || 1}.`;
+            if (MOCK_MSG_SEND) {
+                console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ${replyMsg}`));
+            } else {
+                client.sendMessage(from, replyMsg);
+            }
+            return;
+        }
+    }
+
+    if (uStateText && uStateText.step === "ESPERANDO_FOTO") {
+        const replyMsg = "📸 Sigo esperando la foto o PDF del documento seleccionado. Por favor, adjuntá el archivo.";
+        if (MOCK_MSG_SEND) {
+            console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: ${replyMsg}`));
+        } else {
+            client.sendMessage(from, replyMsg);
+        }
+        return;
+    }
+
+    // 🌟 NUEVA LÓGICA: Si es un cliente válido y no estamos en un paso específico, disparamos el menú
+    if (clienteValidado?.isClient) {
+        console.log(`[LOG] Cliente validado iniciando flujo de documentos: ${from}`);
+        const contact = await msg.getContact();
+        const contactName = contact.name || contact.pushname || "Cliente";
+        await sendPendingDocsMenu(from, clienteValidado, contactName);
+        return;
+    }
+
+    // Fallback si no fue activado por nada de lo anterior
     if (body === "1") {
-        console.log("[LOG] Usuario eligió opción 1");
+        // ... (resto de fallbacks opcionales)
+        console.log("[LOG] Usuario eligió opción 1 (fallback)");
         if (MOCK_MSG_SEND) {
             console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: Enviame la foto del DNI ahora.`));
         } else {
@@ -483,7 +670,7 @@ const handleIncomingMessage = async (msg) => {
     }
 
     if (body === "2") {
-        console.log("[LOG] Usuario eligió opción 2");
+        console.log("[LOG] Usuario eligió opción 2 (fallback)");
         if (MOCK_MSG_SEND) {
             console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${from} | Texto: Enviame la factura en PDF o foto.`));
         } else {
@@ -577,6 +764,20 @@ const withOutSession = () => {
     console.log('🔄 No tenemos sesión guardada, iniciando nueva...');
 
     otraSession = false;
+    qrclient = "Not found";
+
+    if (qrGenerationTimer) clearTimeout(qrGenerationTimer);
+    
+    // Configurar timeout de 2 minutos para destruir la instancia
+    qrGenerationTimer = setTimeout(() => {
+        if (!clientReady && client) {
+            console.log('⏳ Tiempo de espera para escanear QR agotado. Frenando generación...');
+            client.destroy().catch(()=>{}).finally(()=>{
+                client = null;
+                qrclient = "TIMEOUT";
+            });
+        }
+    }, 120000);
 
     // RUTA CONSISTENTE DE SESIÓN
     const AUTH_DIR = './.wwebjs_auth';
@@ -643,6 +844,7 @@ const withOutSession = () => {
     // 📌 Cuando WhatsApp está completamente listo
     client.on('ready', () => {
         console.log('✅ CLIENT READY — Conexión establecida');
+        if (qrGenerationTimer) clearTimeout(qrGenerationTimer);
         otraSession = false;
         clientReady = true;
 
@@ -848,13 +1050,24 @@ app.get('/desconectar', (req, res) => {
 
 
 app.get('/codigo', async (req, res) => {
+    const session = (client && clientReady && client.info) ? {
+        pushname: client.info.pushname,
+        number: client.info.wid.user
+    } : null;
+
+    if (qrclient === "TIMEOUT") {
+        return res.send({
+            src: "TIMEOUT",
+            clientReady: clientReady,
+            otraSession: otraSession,
+            mockMode: MOCK_MSG_SEND,
+            logs: serverLogs,
+            session: session
+        });
+    }
+
     qr.toDataURL(qrclient, (err, src) => {
         if (err) return res.status(500).send({ error: "QR Error" });
-
-        const session = (client && clientReady && client.info) ? {
-            pushname: client.info.pushname,
-            number: client.info.wid.user
-        } : null;
 
         res.send({
             src: src,
@@ -863,8 +1076,55 @@ app.get('/codigo', async (req, res) => {
             mockMode: MOCK_MSG_SEND,
             logs: serverLogs,
             session: session
-        })
+        });
     });
+});
+
+app.get('/live-conversations', async (req, res) => {
+    if (!clientReady || !client) {
+        return res.send({ conversations: [] });
+    }
+    
+    try {
+        const chats = await client.getChats();
+        const userChats = chats.filter(c => !c.isGroup);
+        // Ordenamos por timestamp mas reciente
+        userChats.sort((a, b) => b.timestamp - a.timestamp);
+        
+        // Tomamos los ultimos 10 para no colgar el endpoint
+        const topChats = userChats.slice(0, 10);
+        
+        let conversations = [];
+        for (let chat of topChats) {
+            const messages = await chat.fetchMessages({ limit: 5 });
+            
+            // Inferencia básica de estado:
+            let lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+            let status = 'Activo';
+            if (lastMsg) {
+                status = lastMsg.fromMe ? 'Respuesta enviada' : 'Esperando respuesta...';
+            }
+
+            const contact = await chat.getContact();
+            const displayName = contact.name || contact.pushname || contact.number || chat.id.user;
+
+            conversations.push({
+                phone: chat.id.user,
+                name: displayName,
+                status: status,
+                updatedAt: chat.timestamp * 1000,
+                messages: messages.map(m => ({
+                    role: m.fromMe ? 'Asistente' : 'Cliente',
+                    text: m.hasMedia ? "📸 [Documento adjunto]" : (m.body || ""),
+                    time: m.timestamp * 1000
+                }))
+            });
+        }
+        res.send({ conversations });
+    } catch (error) {
+        console.error("Error fetching chats:", error);
+        res.send({ conversations: [] });
+    }
 });
 
 app.post('/simulate', async (req, res) => {

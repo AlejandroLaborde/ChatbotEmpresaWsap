@@ -79,8 +79,11 @@
                 loading: true,
                 logs: []
             });
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [conversations, setConversations] = useState([]);
             const [showFullLogs, setShowFullLogs] = useState(false);
             const [showSimulador, setShowSimulador] = useState(false);
+            const [showAsistencia, setShowAsistencia] = useState(false);
             const logContainerRef = useRef(null);
             const modalLogContainerRef = useRef(null);
 
@@ -92,11 +95,27 @@
                 } catch (err) { console.error("Sync error"); }
             }, []);
 
+            const fetchConversations = useCallback(async () => {
+                if (activeTab === 'conversaciones') {
+                    try {
+                        const res = await fetch('/live-conversations');
+                        const data = await res.json();
+                        setConversations(data.conversations || []);
+                    } catch (err) { console.error("Conversations error"); }
+                }
+            }, [activeTab]);
+
             useEffect(() => {
                 const interval = setInterval(fetchData, 5000);
                 fetchData();
                 return () => clearInterval(interval);
             }, [fetchData]);
+
+            useEffect(() => {
+                const interval = setInterval(fetchConversations, 3000);
+                fetchConversations();
+                return () => clearInterval(interval);
+            }, [fetchConversations]);
 
             // Auto-scroll
             useEffect(() => {
@@ -124,9 +143,17 @@
                         </div>
 
                         <nav className="flex-1 space-y-4">
-                            <button className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-bold bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 tracking-wide">
+                            <button 
+                                onClick={() => setActiveTab('dashboard')}
+                                className={`flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-bold tracking-wide transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/50 border border-transparent'}`}>
                                 <Icon name="home" className="w-6 h-6" />
                                 <span>PANEL DE CONTROL</span>
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('conversaciones')}
+                                className={`flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-bold tracking-wide transition-all ${activeTab === 'conversaciones' ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/50 border border-transparent'}`}>
+                                <Icon name="message-square" className="w-6 h-6" />
+                                <span>CONVERSACIONES EN VIVO</span>
                             </button>
                             {state.clientReady && state.mockMode && (
                                 <button
@@ -137,7 +164,10 @@
                                     <span>SIMULADOR DE FLUJO</span>
                                 </button>
                             )}
-                            <button className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-medium text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all tracking-wide">
+                            <button 
+                                onClick={() => setShowAsistencia(true)}
+                                className="flex items-center gap-5 w-full px-6 py-4 rounded-2xl text-base font-medium text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all tracking-wide"
+                            >
                                 <Icon name="message-circle" className="w-6 h-6" />
                                 <span>CENTRO ASISTENCIA</span>
                             </button>
@@ -184,7 +214,8 @@
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-12 flex items-start justify-center">
-                            <div className={`max-w-6xl w-full grid grid-cols-1 ${state.clientReady ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-12`}>
+                            {activeTab === 'dashboard' ? (
+                                <div className={`max-w-6xl w-full grid grid-cols-1 ${state.clientReady ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-12`}>
 
                                 <motion.div className="glass rounded-[3rem] p-12 flex flex-col items-center justify-center min-h-[500px]">
                                     <AnimatePresence mode="wait">
@@ -221,8 +252,20 @@
                                                 </div>
 
                                                 {/* Contenido Derecho: Código QR */}
-                                                <div className="bg-white p-8 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] flex items-center justify-center border-[12px] border-zinc-950 shrink-0 transform hover:scale-105 transition-transform duration-500">
-                                                    {state.src ? (
+                                                <div className="bg-white p-8 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] flex items-center justify-center border-[12px] border-zinc-950 shrink-0 transform hover:scale-105 transition-transform duration-500 relative min-h-[300px] min-w-[300px]">
+                                                    {state.src === "TIMEOUT" ? (
+                                                        <div className="flex flex-col items-center text-center">
+                                                            <Icon name="clock" className="w-16 h-16 text-rose-500 mb-4 opacity-50" />
+                                                            <p className="text-black font-bold text-xs uppercase tracking-widest mb-6">QR Expirado</p>
+                                                            <button 
+                                                                onClick={handleReconectar}
+                                                                className="px-6 py-3 bg-zinc-900 hover:bg-emerald-500 text-white hover:text-black font-bold rounded-xl transition-all text-xs tracking-[0.2em] uppercase shadow-xl flex items-center gap-3"
+                                                            >
+                                                                <Icon name="refresh-cw" className="w-4 h-4" />
+                                                                REGENERAR QR
+                                                            </button>
+                                                        </div>
+                                                    ) : state.src ? (
                                                         <img src={state.src} alt="Escanee QR" className="w-64 h-64 object-contain" />
                                                     ) : (
                                                         <div className="w-16 h-16 border-4 border-zinc-200 border-t-emerald-500 rounded-full animate-spin" />
@@ -287,6 +330,54 @@
 
                                 </div>
                             </div>
+                            ) : (
+                                <div className="max-w-7xl w-full">
+                                    <div className="flex items-center gap-4 mb-8">
+                                        <div className="p-3 bg-zinc-800/50 rounded-2xl">
+                                            <Icon name="message-square" className="w-6 h-6 text-zinc-400" />
+                                        </div>
+                                        <h2 className="text-2xl font-bold tracking-tight text-white">Conversaciones en vivo</h2>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                        {conversations.length === 0 ? (
+                                            <div className="col-span-full py-20 text-center flex flex-col items-center opacity-50">
+                                                <Icon name="inbox" className="w-16 h-16 mb-4" />
+                                                <p className="text-zinc-400 font-medium">Aún no hay conversaciones en vivo.</p>
+                                            </div>
+                                        ) : conversations.map(conv => (
+                                            <div key={conv.phone} className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 flex flex-col h-[380px] hover:border-zinc-700/50 transition-all">
+                                                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2 mb-4 flex flex-col">
+                                                    {conv.messages.map((m, i) => {
+                                                        const min = Math.floor((Date.now() - m.time) / 60000);
+                                                        let timeStr = 'hace segs';
+                                                        if (min >= 1 && min < 60) timeStr = `hace ${min} min`;
+                                                        else if (min >= 60) timeStr = `hace ${Math.floor(min / 60)} h`;
+
+                                                        return (
+                                                            <div key={i} className={`flex flex-col ${m.role === 'Cliente' ? 'items-start' : 'items-end'}`}>
+                                                                <div className="flex items-center gap-2 mb-1.5 opacity-60">
+                                                                    <Icon name="user" className="w-3.5 h-3.5" />
+                                                                    <span className="text-xs font-medium">{m.role === 'Cliente' ? conv.name : 'Asistente'}</span>
+                                                                    <span className="text-[10px]">• {timeStr}</span>
+                                                                </div>
+                                                                <div className={`px-4 py-3 rounded-2xl text-sm ${m.role === 'Cliente' ? 'bg-zinc-800 text-zinc-200 rounded-tl-sm' : 'bg-[#0f2e20] text-emerald-100 rounded-tr-sm border border-emerald-900/30'}`}>
+                                                                    {m.text}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <div className="pt-4 border-t border-zinc-800/50 flex items-center justify-center gap-2 mt-auto">
+                                                    <div className={`w-2 h-2 rounded-full ${conv.status.includes('enviada') || conv.status.includes('listo') ? 'bg-emerald-500' : (conv.status.includes('Esperando') ? 'bg-amber-500' : 'bg-blue-500')}`}></div>
+                                                    <span className={`text-xs font-bold tracking-wide ${conv.status.includes('enviada') || conv.status.includes('listo') ? 'text-emerald-500' : (conv.status.includes('Esperando') ? 'text-amber-500' : 'text-blue-500')}`}>
+                                                        {conv.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <footer className="h-16 border-t border-zinc-900 flex items-center justify-center px-12 bg-[#0d0d0d]">
@@ -452,6 +543,59 @@
                                         >
                                             Enviar Mensaje Simulado
                                         </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* MODAL CENTRO ASISTENCIA */}
+                    <AnimatePresence>
+                        {showAsistencia && (
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-8 lg:p-20"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                                    className="bg-[#0c0c0c] border border-zinc-800 w-full max-w-4xl rounded-[3rem] overflow-hidden flex flex-col shadow-2xl relative"
+                                >
+                                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                                        <Icon name="video" className="w-48 h-48 text-emerald-500" />
+                                    </div>
+                                    <div className="p-8 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/20 relative z-10">
+                                        <div className="flex items-center gap-5">
+                                            <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500">
+                                                <Icon name="help-circle" className="w-8 h-8" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold tracking-tight text-white uppercase">Centro de Asistencia</h3>
+                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Guía rápida de conexión</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowAsistencia(false)}
+                                            className="p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl border border-zinc-700 text-zinc-300 transition-all font-bold flex items-center gap-3 uppercase text-xs"
+                                        >
+                                            <Icon name="x" className="w-6 h-6" />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-8 md:p-12 space-y-8 relative z-10 flex flex-col items-center">
+                                        <div className="w-full rounded-3xl overflow-hidden border-4 border-zinc-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                                            <video 
+                                                controls 
+                                                autoPlay
+                                                className="w-full h-auto max-h-[60vh] object-cover"
+                                            >
+                                                <source src="/mediaSend/VideoSesionWsap.mp4" type="video/mp4" />
+                                                Tu navegador no soporta videos HTML5.
+                                            </video>
+                                        </div>
+                                        <div className="text-center space-y-2 mt-4">
+                                            <h4 className="text-lg font-bold text-white tracking-wide">¿Cómo vincular tu WhatsApp?</h4>
+                                            <p className="text-sm text-zinc-400 max-w-xl mx-auto leading-relaxed">Reproduce este breve video tutorial para aprender a conectar la sesión de tu teléfono con el Bot Colossus de manera segura en menos de 1 minuto.</p>
+                                        </div>
                                     </div>
                                 </motion.div>
                             </motion.div>

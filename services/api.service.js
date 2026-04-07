@@ -112,6 +112,8 @@ const getClientQR = async (clientId) => {
     });
 
     if (!response.ok) {
+        const errorBody = await response.text().catch(() => "N/A");
+        console.error(`[API ERROR] get-QR respondió ${response.status}: ${errorBody}`);
         throw new Error(`[API] get-QR falló: ${response.status} ${response.statusText}`);
     }
 
