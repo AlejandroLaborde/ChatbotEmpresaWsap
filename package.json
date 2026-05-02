@@ -4,8 +4,24 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:integration": "jest tests/api.integration.test.js",
+    "test:report": "jest --reporters=default --reporters=jest-html-reporters",
     "start": "node app.js"
+  },
+  "jest": {
+    "reporters": [
+      "default",
+      [
+        "jest-html-reporters",
+        {
+          "publicPath": "./",
+          "filename": "test-report.html",
+          "pageTitle": "Reporte Interactivo de Pruebas",
+          "expand": true
+        }
+      ]
+    ]
   },
   "keywords": [],
   "author": "",
@@ -32,5 +48,10 @@
   },
   "engines": {
     "node": "14.16.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "jest-html-reporter": "^4.4.0",
+    "jest-html-reporters": "^3.1.7"
   }
 }

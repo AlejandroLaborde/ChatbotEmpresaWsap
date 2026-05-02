@@ -46,6 +46,7 @@ const { Client, MessageMedia, LocalAuth } = require('whatsapp-web.js');
 const apiService = require('./services/api.service');
 const flow = require('./flow/steps.json')
 const messages = require('./flow/messages.json');
+const { buildDynamicPendingDocsMessage } = require('./utils/messageBuilder');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -183,18 +184,7 @@ const mockValidatePhoneNumber = (number) => {
     return { clientId: "mock-client-001", isClient: true, message: "Cliente válido (mock)" };
 };
 
-const buildDynamicPendingDocsMessage = (cliente, companyName, documentList) => {
-    let mensaje = `Hola ${cliente.name}! 👋\n`;
-    mensaje += `Para tu próxima visita en *${companyName}* necesitamos la siguiente documentación:\n\n`;
 
-    documentList.forEach((doc, index) => {
-        mensaje += `${index + 1}) *${doc.nameDocument}* — ${doc.descripcionDocument}\n`;
-    });
-
-    mensaje += `\nPor favor enviá el número de la opción que quieras cargar.`;
-
-    return mensaje;
-};
 
 
 
@@ -207,10 +197,20 @@ const sendPendingDocsMenu = async (chatId, clienteValidado, contactName = "Clien
             console.log(`[LOG] Sin documentos pendientes para ${clienteValidado.clientId}. Generando QR...`);
             const qrData = await apiService.getClientQR(clienteValidado.clientId);
             if (qrData?.base64) {
-                const media = new MessageMedia('image/png', qrData.base64);
-                await client.sendMessage(chatId, media, { caption: "No tienes documentación pendiente. Aquí tienes tu QR de acceso." });
+                const caption = "No tienes documentación pendiente. Aquí tienes tu QR de acceso.";
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${chatId} | Texto: ${caption} [CON IMAGEN QR]`));
+                } else {
+                    const media = new MessageMedia('image/png', qrData.base64);
+                    await client.sendMessage(chatId, media, { caption: caption });
+                }
             } else {
-                await client.sendMessage(chatId, "No tienes documentación pendiente. Estamos procesando tu QR, por favor reintenta en unos momentos.");
+                const msgError = "No tienes documentación pendiente. Estamos procesando tu QR, por favor reintenta en unos momentos.";
+                if (MOCK_MSG_SEND) {
+                    console.log(chalk.yellow(`[MOCK SEND REPLY] Para: ${chatId} | Texto: ${msgError}`));
+                } else {
+                    await client.sendMessage(chatId, msgError);
+                }
             }
             return;
         }
@@ -1192,12 +1192,15 @@ app.post('/simulate', async (req, res) => {
 
 app.post('/send', sendMessagePost);
 
-/**
- * Revisamos si existe archivo con credenciales!
- */
-withOutSession();
+if (require.main === module) {
+    withOutSession();
+    app.listen(port, () => {
+        console.log(`Server ready on port ${port}!`);
+    });
+}
 
-
-app.listen(port, () => {
-    console.log('Server ready!');
-})
+module.exports = {
+    handleIncomingMessage,
+    userStates,
+    app
+};

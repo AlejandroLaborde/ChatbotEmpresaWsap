@@ -1,2 +1,3 @@
-2026/04/29-21:22:11.664 1518 Creating DB E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Sync Data\LevelDB since it was missing.
-2026/04/29-21:22:12.560 1518 Reusing MANIFEST E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/05/02-09:47:48.578 33e0 Reusing MANIFEST E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/05/02-09:47:48.622 33e0 Recovering log #3
+2026/05/02-09:47:48.622 33e0 Reusing old log E:\A. Laborde Parodi - Freelance\Nuevo cliente\ChatbotEmpresaWsap\.wwebjs_auth\session-client\Default\Sync Data\LevelDB/000003.log 
