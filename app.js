@@ -66,9 +66,9 @@ const userStates = new Map();
  * false → usa las APIs reales de CelerPass (modo producción)
  * true  → usa los mocks locales (modo desarrollo/testing)
  */
-const workWithMock = false;
-const withDummyNumberCris = false;
-const DUMMY_NUMBER_CRIS = "5491158232588";
+const workWithMock = process.env.USE_MOCKS === 'true';
+const withDummyNumberCris = process.env.USE_DUMMY_NUMBER === 'true';
+const DUMMY_NUMBER_CRIS = process.env.DUMMY_NUMBER || "5491158232588";
 const MOCK_MSG_SEND = process.env.MOCK_MSG_SEND === 'true'; // false → envía mensajes reales | true → loguea en consola sin enviar
 
 /**
@@ -788,10 +788,9 @@ const withOutSession = () => {
             dataPath: AUTH_DIR
         }),
 
-        /* webVersionCache: {
-            type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-        }, */
+        webVersionCache: {
+            type: 'none'
+        },
 
         puppeteer: {
             headless: true,
@@ -1081,32 +1080,68 @@ app.get('/codigo', async (req, res) => {
 });
 
 app.get('/live-conversations', async (req, res) => {
-    if (!clientReady || !client) {
+    // Verificación ultra-estricta de disponibilidad del cliente y el navegador
+    if (!clientReady || !client || !client.pupPage || client.pupPage.isClosed()) {
         return res.send({ conversations: [] });
     }
     
     try {
+        // Verificamos si los scripts internos están inyectados
+        const isWwebJsReady = await client.pupPage.evaluate(() => {
+            return typeof window.WWebJS !== 'undefined' && typeof window.Store !== 'undefined';
+        }).catch(() => false);
+
+        if (!isWwebJsReady) {
+            return res.send({ conversations: [] });
+        }
+
         const chats = await client.getChats();
-        const userChats = chats.filter(c => !c.isGroup);
+        const userChats = chats.filter(c => !c.isGroup && c.id.user !== 'status');
         // Ordenamos por timestamp mas reciente
         userChats.sort((a, b) => b.timestamp - a.timestamp);
         
-        // Tomamos los ultimos 10 para no colgar el endpoint
-        const topChats = userChats.slice(0, 10);
+        // Tomamos los ultimos 25 para mostrar en el dashboard
+        const topChats = userChats.slice(0, 25);
         
         let conversations = [];
         for (let chat of topChats) {
-            const messages = await chat.fetchMessages({ limit: 5 });
+            let messages = [];
+            try {
+                // Si el chat es muy viejo o no está cargado, puede fallar fetchMessages
+                messages = await chat.fetchMessages({ limit: 5 });
+            } catch (msgError) {
+                // Silenciamos el warning en consola para evitar spam.
+                // Intentamos usar el último mensaje cargado en memoria si fetchMessages falló.
+                if (chat.lastMessage) {
+                    messages = [chat.lastMessage];
+                } else {
+                    messages = [{
+                        fromMe: false,
+                        body: "⚠️ Historial no disponible (Error WA)",
+                        timestamp: chat.timestamp,
+                        hasMedia: false
+                    }];
+                }
+            }
             
             // Inferencia básica de estado:
-            let lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+            let lastMsg = messages.length > 0 ? (messages[messages.length - 1].body ? messages[messages.length - 1] : messages[0]) : null;
             let status = 'Activo';
             if (lastMsg) {
-                status = lastMsg.fromMe ? 'Respuesta enviada' : 'Esperando respuesta...';
+                if (lastMsg.body === "⚠️ Historial no disponible temporalmente") {
+                    status = "Error de sincronización";
+                } else {
+                    status = lastMsg.fromMe ? 'Respuesta enviada' : 'Esperando respuesta...';
+                }
             }
 
-            const contact = await chat.getContact();
-            const displayName = contact.name || contact.pushname || contact.number || chat.id.user;
+            let displayName = "Desconocido";
+            try {
+                const contact = await chat.getContact();
+                displayName = contact.name || contact.pushname || contact.number || chat.id.user;
+            } catch (contactError) {
+                displayName = chat.id.user;
+            }
 
             conversations.push({
                 phone: chat.id.user,
@@ -1122,7 +1157,7 @@ app.get('/live-conversations', async (req, res) => {
         }
         res.send({ conversations });
     } catch (error) {
-        console.error("Error fetching chats:", error);
+        console.error("Error crítico en live-conversations:", error);
         res.send({ conversations: [] });
     }
 });
